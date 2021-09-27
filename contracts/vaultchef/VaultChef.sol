@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "../interfaces/IVaultChefWrapper.sol";
 import "../interfaces/IERC20Metadata.sol";
 import "./VaultChefCore.sol";
@@ -19,6 +18,8 @@ import "./VaultChefCore.sol";
  * @dev Events are emitted on the lower level for more compatibility with third-party tools.
  * @dev EmergencyWithdraw event has been omitted intentionally since it is functionally identical to a normal withdrawal.
  * @dev There is no concept of receipt tokens on the compatibility layer, all amounts represent underlying tokens.
+ *
+ * @dev ERC-1155 transfers have been wrapped with nonReentrant to reduce the exploit freedom. Furthermore receipt tokens cannot be sent to the VaultChef as it does not implement the receipt interface.
  * 
  * @dev Furthermore the VaultChef implements IERC20Metadata for etherscan compatibility as it currently uses this metadata to identify ERC-1155 collection metadata.
  *
@@ -27,7 +28,7 @@ import "./VaultChefCore.sol";
  * @dev For third-party reviewers: The security of this extension can be validated since no internal state is modified on the parent contract.
  */
 contract VaultChef is VaultChefCore, IVaultChefWrapper {
-    // ERC-20 metadata for etherscan compatiblity
+    // ERC-20 metadata for etherscan compatiblity.
     string private _name = "Violin Vault Receipt";
     string private _symbol = "vVault";
     uint8 private _decimals = 18;
@@ -135,12 +136,12 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /** Active vault accounting for allocpoints **/
 
     /// @dev Add accounting for the allocPoints and also locking if the strategy already exists.
-    function addVault(IStrategy strategy) public override {
+    function addVault(IStrategy strategy, uint256 performanceFeeBP) public override {
         require(!strategyExists[strategy], "!exists");
         strategyExists[strategy] = true;
         strategyVaultId[strategy] = vaults.length;
         activeVaults += 1;
-        super.addVault(strategy);
+        super.addVault(strategy, performanceFeeBP);
     }
 
     /// @dev _pauseVault is overriden to add accounting for the allocPoints

@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.6;
 
 import "../dependencies/ERC1155Supply.sol";
 import "../dependencies/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "../interfaces/IStrategy.sol";
 import "../interfaces/IVaultChefCore.sol";
 import "../interfaces/IPullDepositor.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 /**
@@ -21,13 +20,14 @@ import "@openzeppelin/contracts/utils/Address.sol";
 contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuard {
     using Address for address;
     using SafeERC20 for IERC20;
-
-    /// @notice The list of all registered vaults
+    
+    /// @notice The list of all registered vaults.
     Vault[] internal vaults;
 
     uint256 private constant MAX_PERFORMANCE_FEE_BP = 500;
 
-    event VaultAdded(IStrategy indexed strategy);
+    event VaultAdded(uint256 indexed vaultId, IStrategy indexed strategy, uint256 performanceFeeBP);
+    event VaultSet(uint256 indexed vaultId, uint256 performanceFeeBP);
     event VaultPaused(uint256 indexed vaultId, bool paused);
     event vaultPanicked(uint256 indexed vaultId);
     event VaultHarvest(uint256 indexed vaultId, uint256 underlyingIncrease);
@@ -48,24 +48,24 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         Vault memory vault = vaults[vaultId];
         require(!vault.paused, "!paused");
 
-        // Variables for shares calculation
+        // Variables for shares calculation.
         uint256 totalSharesBefore = totalSupply(vaultId);
         uint256 underlyingBefore = vault.strategy.totalUnderlying();
 
         // Transfer in the funds from the msg.sender to the strategy contract.
         underlyingAmount = _transferInFunds(vault.underlying, address(vault.strategy), underlyingAmount, pulled);
 
-        // Make the strategy stake the received funds
+        // Make the strategy stake the received funds.
         vault.strategy.deposit(underlyingAmount);
 
         uint256 underlyingAfter = vault.strategy.totalUnderlying();
         underlyingAmount = underlyingAfter - underlyingBefore;
 
-        // Mint shares according to the actually received underlyingAmount, based on the share value before deposit
+        // Mint shares according to the actually received underlyingAmount, based on the share value before deposit.
         uint256 shares = totalSharesBefore != 0 && underlyingBefore != 0 ? (underlyingAmount * totalSharesBefore) / underlyingBefore : underlyingAmount;
-        _mint(msg.sender, vaultId, shares, ""); // Reentrancy hook has been removed from our ERC-1155 implementation (only modification)
+        _mint(msg.sender, vaultId, shares, ""); // Reentrancy hook has been removed from our ERC-1155 implementation (only modification).
 
-         // Gas optimized non-decreasing share value requirement
+         // Gas optimized non-decreasing share value requirement.
         require(underlyingAfter * totalSharesBefore >= underlyingBefore * totalSupply(vaultId) || totalSharesBefore == 0, "!share value decrease");
         // We require the total underlying in the vault to be within reasonable bounds to prevent mulDiv overflow on withdrawal (1e34^2 is still 9 magnitudes smaller than type(uint256).max)
         // Using https://github.com/Uniswap/v3-core/blob/2ac90dd32184f4c5378b19a08bce79492ea23d37/contracts/libraries/FullMath.sol would be a better alternative but goes against our simplicity principle.
@@ -159,9 +159,18 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         return underlyingIncrease;
     }
 
-    function addVault(IStrategy strategy) public virtual override onlyOwner nonReentrant {
-        vaults.push(Vault({underlying: strategy.underlying(), strategy: strategy, paused: false, panicked: false, panicTimestamp: 0, lastHarvestTimestamp: 0, performanceFeeBP: 0}));
-        emit VaultAdded(strategy);
+    function addVault(IStrategy strategy, uint256 performanceFeeBP) public virtual override onlyOwner nonReentrant {
+        require(performanceFeeBP <= MAX_PERFORMANCE_FEE_BP, "!too high");
+        vaults.push(Vault({underlying: strategy.underlying(), strategy: strategy, paused: false, panicked: false, panicTimestamp: 0, lastHarvestTimestamp: 0, performanceFeeBP: performanceFeeBP}));
+        emit VaultAdded(vaults.length - 1, strategy, performanceFeeBP);
+    }
+
+    function setVault(uint256 vaultId, uint256 performanceFeeBP) external virtual override onlyOwner nonReentrant {
+        require(performanceFeeBP <= MAX_PERFORMANCE_FEE_BP, "!too high");
+        Vault storage vault = vaults[vaultId];
+        vault.performanceFeeBP = performanceFeeBP;
+        
+        emit VaultSet(vaultId, performanceFeeBP);
     }
 
     function panicVault(uint256 vaultId) external override onlyOwner nonReentrant {

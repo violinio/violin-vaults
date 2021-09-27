@@ -11,7 +11,7 @@ const { PRIVATE_KEY, ETHERSCAN_APIKEY } = process.env;
  */
 module.exports = {
   solidity: {
-    version: "0.8.4",
+    version: "0.8.6",
     settings: {
       optimizer: {
         enabled: true,

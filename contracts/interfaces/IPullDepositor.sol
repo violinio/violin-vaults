@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.6;
 
-pragma solidity ^0.8.4;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IPullDepositor {
     /**

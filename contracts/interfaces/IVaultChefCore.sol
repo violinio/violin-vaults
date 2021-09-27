@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 
+pragma solidity ^0.8.6;
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "./IStrategy.sol";
 
-pragma solidity ^0.8.4;
 
 /**
  * @notice The VaultChef is a vault management contract that manages vaults, their strategies and the share positions of investors in these vaults.
@@ -90,26 +91,74 @@ interface IVaultChefCore is IERC1155 {
 
     /**
      * @notice Calls harvest on the underlying strategy to compound pending rewards to underlying tokens.
-     * @notice The performance fee is minted to the feeAddress.
+     * @notice The performance fee is minted to the owner as shares, it can never be greater than 5% of the underlyingIncrease.
      * @return underlyingIncrease The amount of underlying tokens generated.
+     * @dev Can only be called by owner.
      */
     function harvest(uint256 vaultid)
         external
         returns (uint256 underlyingIncrease);
 
-    function addVault(IStrategy strategy) external;
+    /**
+     * @notice Adds a new vault to the vaultchef.
+     * @param strategy The strategy contract that manages the allocation of the funds for this vault, also defines the underlying token
+     * @param performanceFeeBP The percentage of the harvest rewards that are given to the governance, denominated by 10,000 and maximum 5%.
+     * @dev Can only be called by owner.
+     */
+    function addVault(IStrategy strategy, uint256 performanceFeeBP) external;
 
+    /**
+     * @notice Updates the performanceFee of the vault.
+     * @param vaultId The id of the vault.
+     * @param performanceFeeBP The percentage of the harvest rewards that are given to the governance, denominated by 10,000 and maximum 5%.
+     * @dev Can only be called by owner.
+     */
+    function setVault(uint256 vaultId, uint256 performanceFeeBP) external;
+
+    /**
+     * @notice Withdraws funds from the underlying staking contract to the strategy and irreversibly pauses the vault.
+     * @param vaultId The id of the vault.
+     * @dev Can only be called by owner.
+     */
     function panicVault(uint256 vaultId) external;
 
+    /**
+     * @notice Returns true if there is a vault associated with the `vaultId`.
+     * @param vaultId The id of the vault.
+     */
     function isValidVault(uint256 vaultId) external returns (bool);
 
-
+    /**
+     * @notice Returns the Vault information of the vault at `vaultId`, returns if non-existent.
+     * @param vaultId The id of the vault.
+     */
     function vaultInfo(uint256 vaultId) external returns (Vault memory);
 
+    /**
+     * @notice Pauses the vault which means deposits and harvests are no longer permitted, reverts if already set to the desired value.
+     * @param vaultId The id of the vault.
+     * @param paused True to pause, false to unpause.
+     * @dev Can only be called by owner.
+     */
     function pauseVault(uint256 vaultId, bool paused) external;
 
+    /**
+     * @notice Transfers tokens from the VaultChef to the `to` address.
+     * @notice Cannot be abused by governance since the protocol never ever transfers tokens to the VaultChef. Any tokens stored there are accidentally sent there.
+     * @param token The token to withdraw from the VaultChef.
+     * @param to The address to send the token to.
+     * @dev Can only be called by owner.
+     */
     function inCaseTokensGetStuck(IERC20 token, address to) external;
 
+    /**
+     * @notice Transfers tokens from the underlying strategy to the `to` address.
+     * @notice Cannot be abused by governance since VaultChef prevents token to be equal to the underlying token.
+     * @param token The token to withdraw from the strategy.
+     * @param to The address to send the token to.
+     * @param amount The amount of tokens to withdraw.
+     * @dev Can only be called by owner.
+     */
     function inCaseVaultTokensGetStuck(
         uint256 vaultId,
         IERC20 token,
