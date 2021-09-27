@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: MIT
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "./IStrategy.sol";
+
+pragma solidity ^0.8.4;
+
+/**
+ * @notice The VaultChef is a vault management contract that manages vaults, their strategies and the share positions of investors in these vaults.
+ * @notice Positions are not hardcoded into the contract like traditional staking contracts, instead they are managed as ERC-1155 receipt tokens.
+ * @notice This receipt-token mechanism is supposed to simplify zapping and other derivative protocols.
+ * @dev The VaultChef contract has the following design principles.
+ * @dev 1. Simplicity of Strategies: Strategies should be as simple as possible.
+ * @dev 2. Control of Governance: Governance should never be able to steal underlying funds.
+ * @dev 3. Auditability: It should be easy for third-party reviewers to assess the safety of the VaultChef.
+ */
+interface IVaultChefCore is IERC1155 {
+    /// @notice A vault is a strategy users can stake underlying tokens in to receive a share of the vault value.
+    struct Vault {
+        /// @notice The token this strategy will compound.
+        IERC20 underlying;
+        /// @notice The strategy contract.
+        IStrategy strategy;
+        /// @notice Whether deposits are currently paused.
+        bool paused;
+        /// @notice Whether the vault has panicked which means the funds are pulled from the strategy and it is paused forever.
+        bool panicked;
+        /// @notice The timestamp at which the vault panicked, set to zero while not panicked.
+        uint256 panicTimestamp;
+        /// @notice The timestamp of the last harvest, set to zero while no harvests have happened.
+        uint256 lastHarvestTimestamp;
+        /// @notice The performance fee portion of the harvests that is sent to the feeAddress, denominated by 10,000.
+        uint256 performanceFeeBP;
+    }
+
+    /**
+     * @notice Deposit `underlyingAmount` amount of underlying tokens into the vault and receive `sharesReceived` proportional to the actually staked amount.
+     * @notice Deposits mint `sharesReceived` receipt tokens as ERC-1155 tokens to msg.sender with the tokenId equal to the vaultId.
+     * @notice The tokens are transferred from `msg.sender` which requires approval if pulled is set to false, otherwise `msg.sender` needs to implement IPullDepositor.
+     * @param vaultId The id of the vault.
+     * @param underlyingAmount The intended amount of tokens to deposit (this might not equal the actual deposited amount due to tx/stake fees or the pull mechanism).
+     * @param pulled Uses a pull-based deposit hook if set to true, otherwise traditional safeTransferFrom. The pull-based mechanism allows the depositor to send tokens using a hook.
+     * @param minSharesReceived The minimum amount of shares that must be received, or the transaction reverts.
+     * @dev This pull-based methodology is extremely valuable for zapping transfer-tax tokens more economically.
+     * @dev `msg.sender` must be a smart contract implementing the `IPullDepositor` interface.
+     * @return sharesReceived The number of shares minted to the msg.sender.
+     */
+    function depositUnderlying(
+        uint256 vaultId,
+        uint256 underlyingAmount,
+        bool pulled,
+        uint256 minSharesReceived
+    ) external returns (uint256 sharesReceived);
+
+    /**
+     * @notice Withdraws `shares` from the vault into underlying tokens to the `msg.sender`.
+     * @notice Burns `shares` receipt tokens from the `msg.sender`.
+     * @param vaultId The id of the vault.
+     * @param shares The amount of shares to burn, underlying tokens will be sent to msg.sender proportionally.
+     * @param minUnderlyingReceived The minimum amount of underlying tokens that must be received, or the transaction reverts.
+     */
+    function withdrawShares(
+        uint256 vaultId,
+        uint256 shares,
+        uint256 minUnderlyingReceived
+    ) external returns (uint256 underlyingReceived);
+
+    /**
+     * @notice Withdraws `shares` from the vault into underlying tokens to the `to` address.
+     * @notice To prevent phishing, we require msg.sender to be a contract as this is intended for more economical zapping of transfer-tax token withdrawals.
+     * @notice Burns `shares` receipt tokens from the `msg.sender`.
+     * @param vaultId The id of the vault.
+     * @param shares The amount of shares to burn, underlying tokens will be sent to msg.sender proportionally.
+     * @param minUnderlyingReceived The minimum amount of underlying tokens that must be received, or the transaction reverts.
+     */
+    function withdrawSharesTo(
+        uint256 vaultId,
+        uint256 shares,
+        uint256 minUnderlyingReceived,
+        address to
+    ) external returns (uint256 underlyingReceived);
+
+    /**
+     * @notice Total amount of shares in circulation for a given vaultId.
+     * @param vaultId The id of the vault.
+     * @return The total number of shares currently in circulation.
+     */
+    function totalSupply(uint256 vaultId) external view returns (uint256);
+
+    /**
+     * @notice Calls harvest on the underlying strategy to compound pending rewards to underlying tokens.
+     * @notice The performance fee is minted to the feeAddress.
+     * @return underlyingIncrease The amount of underlying tokens generated.
+     */
+    function harvest(uint256 vaultid)
+        external
+        returns (uint256 underlyingIncrease);
+
+    function addVault(IStrategy strategy) external;
+
+    function panicVault(uint256 vaultId) external;
+
+    function isValidVault(uint256 vaultId) external returns (bool);
+
+
+    function vaultInfo(uint256 vaultId) external returns (Vault memory);
+
+    function pauseVault(uint256 vaultId, bool paused) external;
+
+    function inCaseTokensGetStuck(IERC20 token, address to) external;
+
+    function inCaseVaultTokensGetStuck(
+        uint256 vaultId,
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) external;
+}

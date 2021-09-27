@@ -10,5 +10,9 @@ interface IPullDepositor {
      * @dev This interface allows for an alternative flow compared to the traditional transferFrom flow.
      * @dev This flow is especially useful when in combination with a zapping contract.
      */
-    function pullTokens(IERC20 token, uint256 amount, address to) external;
+    function pullTokens(
+        IERC20 token,
+        uint256 amount,
+        address to
+    ) external;
 }

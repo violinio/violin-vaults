@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 pragma solidity ^0.8.4;
 
 interface IStrategy {
-
     /**
      * @notice Gets the token this strategy compounds.
      * @dev This token might have a transfer-tax.
@@ -13,7 +12,6 @@ interface IStrategy {
      */
     function underlying() external view returns (IERC20);
 
-        
     /**
      * @notice Gets the total amount of tokens either idle in this strategy or staked in an underlying strategy.
      */
@@ -27,7 +25,6 @@ interface IStrategy {
 
     function harvest() external;
 
-    
     /**
      * @notice Deposits `amount` amount of underlying tokens in the underlying strategy
      * @dev Authority: This function must only be callable by the VaultChef.
@@ -47,8 +44,12 @@ interface IStrategy {
      * @notice The underlying token can never be withdrawn through this method because VaultChef prevents it.
      * @dev Requirement: This function should in no way allow withdrawal of staking tokens
      * @dev Requirement: This function should in no way allow for the decline in shares or share value (this is also checked in the VaultChef);
-     * @dev Validation is already done in the VaultChef that the staking token cannot be withdrawn. 
+     * @dev Validation is already done in the VaultChef that the staking token cannot be withdrawn.
      * @dev Authority: This function must only be callable by the VaultChef.
      */
-    function inCaseTokensGetStuck(IERC20 token, uint256 amount, uint256 to) external;
+    function inCaseTokensGetStuck(
+        IERC20 token,
+        uint256 amount,
+        address to
+    ) external;
 }

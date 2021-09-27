@@ -2,43 +2,30 @@
 
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "../dependencies/ERC1155Supply.sol";
+import "../dependencies/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../interfaces/IStrategy.sol";
-import "../interfaces/IVaultChef.sol";
+import "../interfaces/IVaultChefCore.sol";
 import "../interfaces/IPullDepositor.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
-// TODO: DECIMALZZZ?
-// TODO: DONT CALL REENTRANCY HOOK ON ERC1155!!
-contract VaultChefCore is IVaultChef, ERC1155Supply, Ownable, ReentrancyGuard {
-    using SafeERC20 for IERC20; 
-
-    struct Vault {
-        /// @notice The token this strategy will compound.
-        IERC20 underlying;
-        /// @notice The strategy contract.
-        IStrategy strategy;
-        /// @notice Whether deposits are currently paused.
-        bool paused;
-        /// @notice Whether the vault has panicked which means the funds are pulled from the strategy and it is paused forever.
-        bool panicked;
-    }
-
-    /// @notice how many vaults are not paused
-    uint256 activeVaults;
+/**
+ * @title VaultChefCore
+ * @notice A vault management contract that manages vaults, their strategies and the share positions of investors in these vaults.
+ * @notice Documentation is present in the IVaultChefCore interface.
+ */
+contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuard {
+    using Address for address;
+    using SafeERC20 for IERC20;
 
     /// @notice The list of all registered vaults
-    Vault[] public vaults;
+    Vault[] internal vaults;
 
-    /// @notice mapping that returns true if the strategy is set as a vault
-    mapping(IStrategy => bool) public strategyExists;
-    /// @notice Utility mapping for UI to figure out the vault id of a strategy
-    mapping(IStrategy => uint256) public strategyVaultId;
+    uint256 private constant MAX_PERFORMANCE_FEE_BP = 500;
 
     event VaultAdded(IStrategy indexed strategy);
     event VaultPaused(uint256 indexed vaultId, bool paused);
@@ -47,244 +34,209 @@ contract VaultChefCore is IVaultChef, ERC1155Supply, Ownable, ReentrancyGuard {
     event VaultInCaseTokenStuck(uint256 indexed vaultId, IERC20 indexed token, address indexed to, uint256 amount);
     event URIUpdated(string oldURI, string newURI);
     event InCaseTokenStuck(IERC20 indexed token, address indexed to, uint256 amount);
-    
-    // TODO: DEPOSIT AND WITHDRAW EVENTS? Or are the mint and burn events sufficient?
+
+    event Deposit(uint256 indexed vaultId, address indexed user, uint256 sharesAmount, uint256 underlyingAmountReceived);
+    event Withdraw(uint256 indexed vaultId, address indexed user, address receiver, uint256 sharesAmount, uint256 underlyingAmountReceived);
 
     constructor() ERC1155("https://violin.finance/api/vaults/{id}.json") {}
 
     //** USER FUNCTIONS *//
-    /**
-     * TODO: DOCS
-     * TODO: RGs
-     * @dev Function is marked as public since it is used within the VaultChef layer.
-     */
-    function depositUnderlying(uint256 vaultId, uint256 underlyingAmount)
-        public
-        override
-        nonDecreasingShareValue(vaultId)
-        nonReentrant
-        returns (uint256 sharesReceived)
-    {
+
+    function depositUnderlying(uint256 vaultId, uint256 underlyingAmount, bool pulled, uint256 minSharesReceived) public override nonReentrant returns (uint256 sharesReceived) {
         require(isValidVault(vaultId), "!no vault");
+        _harvest(vaultId);
         Vault memory vault = vaults[vaultId];
         require(!vault.paused, "!paused");
-        vault.strategy.harvest();
-        uint256 beforeBal = vault.underlying.balanceOf(address(vault.strategy));
-        vault.underlying.safeTransferFrom(
-            msg.sender,
-            address(vault.strategy),
-            underlyingAmount
-        );
-        underlyingAmount =
-            vault.underlying.balanceOf(address(vault.strategy)) -
-            beforeBal;
-        return _stake(msg.sender, vaultId, underlyingAmount);
-    }
 
-    function depositPulled(uint256 vaultId, uint256 underlyingAmount)
-        external
-        override
-        nonDecreasingShareValue(vaultId)
-        nonReentrant
-        returns (uint256 sharesReceived)
-    {
-        require(isValidVault(vaultId), "!no vault");
-        Vault memory vault = vaults[vaultId];
-        require(!vault.paused, "!paused");
-        vault.strategy.harvest();
-        uint256 beforeBal = vault.underlying.balanceOf(address(vault.strategy));
-        IPullDepositor(msg.sender).pullTokens(
-            vault.underlying,
-            underlyingAmount,
-            address(vault.strategy)
-        );
-        underlyingAmount =
-            vault.underlying.balanceOf(address(vault.strategy)) -
-            beforeBal;
-        return _stake(msg.sender, vaultId, underlyingAmount);
-    }
+        // Variables for shares calculation
+        uint256 totalSharesBefore = totalSupply(vaultId);
+        uint256 underlyingBefore = vault.strategy.totalUnderlying();
 
-    function _stake(
-        address shareReceiver,
-        uint256 vaultId,
-        uint256 underlyingAmount
-    ) internal returns (uint256 sharesReceived) {
-        Vault memory vault = vaults[vaultId];
-        // UnderlyingAmount must be equal to the amount of tokens actually received by the strategy (axioma). 
-        // Therefore we can simply get the totalUnderlying before the deposit through subtraction.
-        uint256 beforeBal = vault.strategy.totalUnderlying() - underlyingAmount;
-        // Deposit the tokens that were already transferred to the vault
+        // Transfer in the funds from the msg.sender to the strategy contract.
+        underlyingAmount = _transferInFunds(vault.underlying, address(vault.strategy), underlyingAmount, pulled);
+
+        // Make the strategy stake the received funds
         vault.strategy.deposit(underlyingAmount);
-        underlyingAmount = vault.strategy.totalUnderlying() - beforeBal;
 
-        uint256 shares = (underlyingAmount * 1e18) / shareValue(vaultId);
-        _mint(shareReceiver, vaultId, shares, ""); // TODO: Remove reentrancy vector from ERC-1155, it has no value
+        uint256 underlyingAfter = vault.strategy.totalUnderlying();
+        underlyingAmount = underlyingAfter - underlyingBefore;
+
+        // Mint shares according to the actually received underlyingAmount, based on the share value before deposit
+        uint256 shares = totalSharesBefore != 0 && underlyingBefore != 0 ? (underlyingAmount * totalSharesBefore) / underlyingBefore : underlyingAmount;
+        _mint(msg.sender, vaultId, shares, ""); // Reentrancy hook has been removed from our ERC-1155 implementation (only modification)
+
+         // Gas optimized non-decreasing share value requirement
+        require(underlyingAfter * totalSharesBefore >= underlyingBefore * totalSupply(vaultId) || totalSharesBefore == 0, "!share value decrease");
+        // We require the total underlying in the vault to be within reasonable bounds to prevent mulDiv overflow on withdrawal (1e34^2 is still 9 magnitudes smaller than type(uint256).max)
+        // Using https://github.com/Uniswap/v3-core/blob/2ac90dd32184f4c5378b19a08bce79492ea23d37/contracts/libraries/FullMath.sol would be a better alternative but goes against our simplicity principle.
+        require(underlyingAfter <= 1e34, "!unsafe");
+        require(shares >= minSharesReceived, "!min not received");
+        emit Deposit(vaultId, msg.sender, shares, underlyingAmount);
         return shares;
     }
 
-    // TODO: What does modifier do if the share value goes to zero???
-    // TODO: Add to parameter which can only be set if msg.sender is a contract. The purpose is for efficient zapping withdrawals with transfer taxes
-    function withdrawShares(uint256 vaultId, uint256 shares)
-        public
-        override
-        nonDecreasingShareValue(vaultId)
-        nonReentrant
-        returns (uint256 underlyingReceived)
-    {
-        require(isValidVault(vaultId), "!no vault");
-        Vault storage vault = vaults[vaultId];
+    function withdrawShares(uint256 vaultId, uint256 shares, uint256 minReceived) public override nonDecreasingShareValue(vaultId) nonReentrant returns (uint256 underlyingReceived) {
+        return _withdrawSharesTo(vaultId, shares, minReceived, msg.sender);
+    }
 
+    function withdrawSharesTo(
+        uint256 vaultId,
+        uint256 shares,
+        uint256 minReceived,
+        address to
+    ) public override nonDecreasingShareValue(vaultId) nonReentrant returns (uint256 underlyingReceived) {
+        // Withdrawing to another wallet should only be done by zapping contracts thus we can add a phishing measure
+        require(address(msg.sender).isContract(), "!to phishing");
+        return _withdrawSharesTo(vaultId, shares, minReceived, to);
+    }
+    
+    function _withdrawSharesTo(
+        uint256 vaultId,
+        uint256 shares,
+        uint256 minReceived,
+        address to
+    ) internal returns (uint256 underlyingReceived) {
+        require(isValidVault(vaultId), "!no vault");
+        require(balanceOf(msg.sender, vaultId) >= shares, "!insufficient shares");
+        require(shares > 0, "!zero shares");
+        Vault memory vault = vaults[vaultId];
+        
         _burn(msg.sender, vaultId, shares);
 
-        uint256 withdrawAmount = (shareValue(vaultId) * shares) / 1e18;
-        uint256 balanceBefore = vault.underlying.balanceOf(msg.sender);
-        vault.strategy.withdraw(msg.sender, withdrawAmount);
-        withdrawAmount = vault.underlying.balanceOf(msg.sender) - balanceBefore;
+        uint256 withdrawAmount = (shares * vault.strategy.totalUnderlying()) / totalSupply(vaultId);
+        uint256 balanceBefore = vault.underlying.balanceOf(to);
+        vault.strategy.withdraw(to, withdrawAmount);
+        withdrawAmount = vault.underlying.balanceOf(to) - balanceBefore;
 
+        require(withdrawAmount >= minReceived, "!min not received");
+        emit Withdraw(vaultId, msg.sender, to, shares, withdrawAmount);
         return withdrawAmount;
+    }
+
+    /// @notice Transfers in tokens from the `msg.sender` to `to`. Returns the actual receivedAmount that can be both lower and higher
+    /// @param pulled Whether to use a pulled-based mechanism
+    /// @dev Requires reentrancy-guard and no way for the staked funds to be sent back into the strategy within the before-after.
+    function _transferInFunds(IERC20 token, address to, uint256 underlyingAmount, bool pulled) internal returns(uint256 receivedAmount) {
+        uint256 beforeBal = token.balanceOf(to);
+        if(!pulled) {
+            token.safeTransferFrom(msg.sender, to, underlyingAmount);
+        }else {
+            IPullDepositor(msg.sender).pullTokens(token, underlyingAmount, to);
+        }
+        return token.balanceOf(to) - beforeBal;
     }
 
     //** GOVERNANCE FUNCTIONS *//
 
-    // TODO: Move privilege to harvester role (RBAC)
-    function harvest(uint256 vaultId) external override nonDecreasingShareValue(vaultId) nonDecreasingUnderlyingValue(vaultId) onlyOwner nonReentrant {
+    /// @dev nonDecreasingUnderlyingValue(vaultId) omitted since it is implicitly defined.
+    function harvest(uint256 vaultId) external override onlyOwner nonReentrant returns (uint256 underlyingIncrease) { 
         require(isValidVault(vaultId), "!no vault");
+        require(!vaults[vaultId].paused, "!paused");
+
+        return _harvest(vaultId);
+    }
+    
+    /// @dev Gas optimization: Implicit nonDecreasingShareValue due to no supply change within _harvest (reentrancyGuards guarantee this).
+    /// @dev Gas optimization: Implicit nonDecreasingUnderlyingValue check due to before-after underflow.
+    function _harvest(uint256 vaultId) internal returns (uint256 underlyingIncrease) {
         Vault storage vault = vaults[vaultId];
-        require(!vault.paused, "!paused");
-        uint256 underlyingBefore = vault.strategy.totalUnderlying();
-        vault.strategy.harvest();
-        uint256 underlyingIncrease = vault.strategy.totalUnderlying() - underlyingBefore;
+        IStrategy strategy = vault.strategy;
+        
+        uint256 underlyingBefore = strategy.totalUnderlying();
+        strategy.harvest();
+        uint256 underlyingAfter = strategy.totalUnderlying();
+        underlyingIncrease = underlyingAfter - underlyingBefore;
+
+        vault.lastHarvestTimestamp = block.timestamp;
+
+        // The performance fee is minted to the feeAddress in shares to reduce governance risk, strategy complexity and gas fees.
+        if(underlyingIncrease > 0 && owner() != address(0)) {
+            uint256 performanceFeeShares = (underlyingIncrease * totalSupply(vaultId) * vault.performanceFeeBP) / underlyingAfter / 10000;
+            _mint(owner(), vaultId, performanceFeeShares, "");
+        }
 
         emit VaultHarvest(vaultId, underlyingIncrease);
+        return underlyingIncrease;
     }
 
-    function addVault(IStrategy strategy) external override onlyOwner {
-        require(!strategyExists[strategy], "!exists");
-
-        vaults.push(
-            Vault({
-                underlying: strategy.underlying(),
-                strategy: strategy,
-                paused: false,
-                panicked: false
-            })
-        );
-
-        strategyExists[strategy] = true;
-        strategyVaultId[strategy] = vaults.length - 1;
-
-        activeVaults += 1;
-
+    function addVault(IStrategy strategy) public virtual override onlyOwner nonReentrant {
+        vaults.push(Vault({underlying: strategy.underlying(), strategy: strategy, paused: false, panicked: false, panicTimestamp: 0, lastHarvestTimestamp: 0, performanceFeeBP: 0}));
         emit VaultAdded(strategy);
     }
 
-    function panicVault(uint256 vaultId)
-        external
-        override
-        onlyOwner
-        nonReentrant
-    {
+    function panicVault(uint256 vaultId) external override onlyOwner nonReentrant {
         require(isValidVault(vaultId), "!no vault");
         Vault storage vault = vaults[vaultId];
-        require(!vault.panicked, "Already panicked");
-        _pauseVault(vaultId, true);
+        require(!vault.panicked, "!panicked");
+        if (!vault.paused) _pauseVault(vaultId, true);
         vault.panicked = true;
+        vault.panicTimestamp = block.timestamp;
+
         vault.strategy.panic();
 
         emit vaultPanicked(vaultId);
     }
 
-    // TODO: This should be callable by an EOA, add PauseGuardian role (only owner can unpause however)
-    function pauseVault(uint256 vaultId, bool paused)
-        external
-        override
-        onlyOwner
-        nonReentrant
-    {
+    function pauseVault(uint256 vaultId, bool paused) external override onlyOwner nonReentrant {
         require(isValidVault(vaultId), "!no vault");
         _pauseVault(vaultId, paused);
     }
 
-    function _pauseVault(uint256 vaultId, bool paused) internal {
+    /// @notice Marks the vault as paused which means no deposits or harvests can occur anymore.
+    function _pauseVault(uint256 vaultId, bool paused) internal virtual {
         Vault storage vault = vaults[vaultId];
-        require(!vault.panicked, "Panicked");
-
-        if (paused != vault.paused) {
-            vault.paused = paused;
-            if (paused) {
-                activeVaults -= 1;
-            } else {
-                activeVaults += 1;
-            }
-
-            emit VaultPaused(vaultId, paused);
-        }
+        require(!vault.panicked, "!panicked");
+        require(paused != vault.paused, "!set");
+        vault.paused = paused;
+        emit VaultPaused(vaultId, paused);
     }
 
-    function inCaseTokensGetStuck(IERC20 token, address to)
-        external
-        override
-        onlyOwner
-        nonReentrant
-    {
+    /// @notice No staked tokens are ever sent to the VaultChef, only to the strategies.
+    function inCaseTokensGetStuck(IERC20 token, address to) external override onlyOwner nonReentrant {
         uint256 amount = token.balanceOf(address(this));
         token.safeTransfer(to, amount);
         emit InCaseTokenStuck(token, to, amount);
     }
-    
-    function inCaseVaultTokensGetStuck(uint256 vaultId, IERC20 token, address to, uint256 amount)
-        external
-        override
-        onlyOwner
-        nonReentrant
-        nonDecreasingUnderlyingValue(vaultId)
-    {
+
+    /// @notice All though the strategy could contain underlying tokens, this function reverts if governance tries to withdraw these.
+    function inCaseVaultTokensGetStuck(
+        uint256 vaultId,
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) external override onlyOwner nonReentrant nonDecreasingUnderlyingValue(vaultId) {
         require(isValidVault(vaultId), "!no vault");
-        // require(!vault.panicked, "!panicked"); ? is this necessary ? perhaps we add a 2 month panic timer and disable the requirement after this?
         Vault storage vault = vaults[vaultId];
-        
         require(token != vault.underlying, "!underlying");
-        token.safeTransfer(to, amount);
+
+        vault.strategy.inCaseTokensGetStuck(token, amount, to);
         emit VaultInCaseTokenStuck(vaultId, token, to, amount);
-    }
-
-
-    /// @notice Override the token api URI, this is needed since we want to change it to include the chain slug.
-    function setURI(string memory newURI) external onlyOwner {
-        string memory oldURI = uri(0); // We use a simple uri template which is identical for all tokens.
-        _setURI(newURI);
-
-        emit URIUpdated(oldURI, newURI);
     }
 
     //** VIEW FUNCTIONS *//
 
     /// @notice returns whether a vault exists at the provided vault id `vaultId`.
-    function isValidVault(uint256 vaultId) public view returns (bool) {
+    function isValidVault(uint256 vaultId) public override view returns (bool) {
         return vaultId < vaults.length;
     }
 
-    /// @notice returns the 1e18 scaled totalUnderlying/totalShares value
-    /// @notice returns 1e18 if there are no shares
-    /// @dev IMPORTANT: Always remember to consider the case where totalSupply is zero when using this function.
-    function shareValue(uint256 vaultId) internal view returns (uint256) {
-        uint256 supply = totalSupply(vaultId);
-        if (supply == 0) return 1e18;
-        return (vaults[vaultId].strategy.totalUnderlying() * 1e18) / supply;
+    /// @notice Returns information about the vault for the frontend to use.
+    function vaultInfo(uint256 vaultId) public override view returns (Vault memory) {
+        return vaults[vaultId];
     }
 
     //** MODIFIERS **//
-    /// @dev the nonDecreasingShareValue modifier requires the vault's share value to be nondecreasing over the operation
+    
+    /// @dev the nonDecreasingShareValue modifier requires the vault's share value to be nondecreasing over the operation.
     modifier nonDecreasingShareValue(uint256 vaultId) {
-        uint256 shareValueBefore = totalSupply(vaultId) != 0
-            ? shareValue(vaultId)
-            : 0;
+        uint256 supply = totalSupply(vaultId);
+        uint256 underlyingBefore = vaults[vaultId].strategy.totalUnderlying();
         _;
-        if (totalSupply(vaultId) == 0)
-            // We return early if there are no remaining shares since all shares since there is also no value at this point to validate.
-            return;
-        uint256 shareValueAfter = shareValue(vaultId);
-        require(shareValueAfter >= shareValueBefore, "share value decreased");
+        if(supply == 0) return;
+        uint256 underlyingAfter = vaults[vaultId].strategy.totalUnderlying();
+        uint256 newSupply = totalSupply(vaultId);
+        // This is a rewrite of shareValueAfter >= shareValueBefore which also passes if newSupply is zero
+        require(underlyingAfter * supply >= underlyingBefore * newSupply, "!share decrease");
     }
 
     /// @dev the nonDecreasingVaultValue modifier requires the vault's total underlying tokens to not decrease over the operation.
@@ -293,17 +245,12 @@ contract VaultChefCore is IVaultChef, ERC1155Supply, Ownable, ReentrancyGuard {
         uint256 balanceBefore = vault.strategy.totalUnderlying();
         _;
         uint256 balanceAfter = vault.strategy.totalUnderlying();
-        require(balanceAfter >= balanceBefore, "vault balance decreased");
+        require(balanceAfter >= balanceBefore, "!vault balance decrease");
     }
 
     //** REQUIRED OVERRIDES *//
-
-    function totalSupply(uint256 id)
-        public
-        view
-        override(ERC1155Supply, IVaultChef)
-        returns (uint256)
-    {
+    /// @dev Due to multiple inheritence, we require to overwrite the totalSupply method.
+    function totalSupply(uint256 id) public view override(ERC1155Supply, IVaultChefCore) returns (uint256) {
         return super.totalSupply(id);
     }
 }
