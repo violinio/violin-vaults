@@ -87,7 +87,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     {
         require(isValidVault(vaultId), "!no vault");
         uint256 allocPoints = vaults[vaultId].paused ? 0 : 1;
-        return (vaults[vaultId].underlying, allocPoints, 0, 0);
+        return (vaults[vaultId].underlyingToken, allocPoints, 0, 0);
     }
 
     /// @notice Returns the total amount of underlying tokens a vault has under management.

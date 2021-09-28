@@ -10,7 +10,7 @@ interface IStrategy {
      * @dev This token might have a transfer-tax.
      * @dev Invariant: This variable may never change.
      */
-    function underlying() external view returns (IERC20);
+    function underlyingToken() external view returns (IERC20);
 
     /**
      * @notice Gets the total amount of tokens either idle in this strategy or staked in an underlying strategy.

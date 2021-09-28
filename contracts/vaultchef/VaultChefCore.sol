@@ -24,7 +24,8 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
     /// @notice The list of all registered vaults.
     Vault[] internal vaults;
 
-    uint256 private constant MAX_PERFORMANCE_FEE_BP = 500;
+    /// @notice The maximum performance fee settable. This is the % of the harvests are minted to the owner.
+    uint256 private constant MAX_PERFORMANCE_FEE_BP = 1000;
 
     event VaultAdded(uint256 indexed vaultId, IStrategy indexed strategy, uint256 performanceFeeBP);
     event VaultSet(uint256 indexed vaultId, uint256 performanceFeeBP);
@@ -53,7 +54,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         uint256 underlyingBefore = vault.strategy.totalUnderlying();
 
         // Transfer in the funds from the msg.sender to the strategy contract.
-        underlyingAmount = _transferInFunds(vault.underlying, address(vault.strategy), underlyingAmount, pulled);
+        underlyingAmount = _transferInFunds(vault.underlyingToken, address(vault.strategy), underlyingAmount, pulled);
 
         // Make the strategy stake the received funds.
         vault.strategy.deposit(underlyingAmount);
@@ -65,12 +66,13 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         uint256 shares = totalSharesBefore != 0 && underlyingBefore != 0 ? (underlyingAmount * totalSharesBefore) / underlyingBefore : underlyingAmount;
         _mint(msg.sender, vaultId, shares, ""); // Reentrancy hook has been removed from our ERC-1155 implementation (only modification).
 
-         // Gas optimized non-decreasing share value requirement.
-        require(underlyingAfter * totalSharesBefore >= underlyingBefore * totalSupply(vaultId) || totalSharesBefore == 0, "!share value decrease");
+         // Gas optimized non-decreasing share value requirement (see nonDecreasingShareValue). Marked as assert as we see no could not find any way to fail this.
+        assert(underlyingAfter * totalSharesBefore >= underlyingBefore * totalSupply(vaultId) || totalSharesBefore == 0);
         // We require the total underlying in the vault to be within reasonable bounds to prevent mulDiv overflow on withdrawal (1e34^2 is still 9 magnitudes smaller than type(uint256).max)
         // Using https://github.com/Uniswap/v3-core/blob/2ac90dd32184f4c5378b19a08bce79492ea23d37/contracts/libraries/FullMath.sol would be a better alternative but goes against our simplicity principle.
         require(underlyingAfter <= 1e34, "!unsafe");
         require(shares >= minSharesReceived, "!min not received");
+        require(shares > 0, "!zero shares");
         emit Deposit(vaultId, msg.sender, shares, underlyingAmount);
         return shares;
     }
@@ -104,9 +106,9 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         uint256 withdrawAmount = (shares * vault.strategy.totalUnderlying()) / totalSupply(vaultId);
         _burn(msg.sender, vaultId, shares);
 
-        uint256 balanceBefore = vault.underlying.balanceOf(to);
+        uint256 balanceBefore = vault.underlyingToken.balanceOf(to);
         vault.strategy.withdraw(to, withdrawAmount);
-        withdrawAmount = vault.underlying.balanceOf(to) - balanceBefore;
+        withdrawAmount = vault.underlyingToken.balanceOf(to) - balanceBefore;
 
         require(withdrawAmount >= minReceived, "!min not received");
         emit Withdraw(vaultId, msg.sender, to, shares, withdrawAmount);
@@ -149,7 +151,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
 
         vault.lastHarvestTimestamp = block.timestamp;
 
-        // The performance fee is minted to the feeAddress in shares to reduce governance risk, strategy complexity and gas fees.
+        // The performance fee is minted to the owner in shares to reduce governance risk, strategy complexity and gas fees.
         if(underlyingIncrease > 0 && owner() != address(0)) {
             uint256 performanceFeeShares = (underlyingIncrease * totalSupply(vaultId) * vault.performanceFeeBP) / underlyingAfter / 10000;
             _mint(owner(), vaultId, performanceFeeShares, "");
@@ -161,7 +163,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
 
     function addVault(IStrategy strategy, uint256 performanceFeeBP) public virtual override onlyOwner nonReentrant {
         require(performanceFeeBP <= MAX_PERFORMANCE_FEE_BP, "!too high");
-        vaults.push(Vault({underlying: strategy.underlying(), strategy: strategy, paused: false, panicked: false, panicTimestamp: 0, lastHarvestTimestamp: 0, performanceFeeBP: performanceFeeBP}));
+        vaults.push(Vault({underlyingToken: strategy.underlyingToken(), strategy: strategy, paused: false, panicked: false, panicTimestamp: 0, lastHarvestTimestamp: 0, performanceFeeBP: performanceFeeBP}));
         emit VaultAdded(vaults.length - 1, strategy, performanceFeeBP);
     }
 
@@ -215,9 +217,9 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         address to,
         uint256 amount
     ) external override onlyOwner nonReentrant nonDecreasingUnderlyingValue(vaultId) {
-        require(isValidVault(vaultId), "!no vault");
+        assert(isValidVault((vaultId)));// isValidVault is defined in nonDecreasingUnderlyingValue
         Vault storage vault = vaults[vaultId];
-        require(token != vault.underlying, "!underlying");
+        require(token != vault.underlyingToken, "!underlying");
 
         vault.strategy.inCaseTokensGetStuck(token, amount, to);
         emit VaultInCaseTokenStuck(vaultId, token, to, amount);
@@ -246,7 +248,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         if(supply == 0) return;
         uint256 underlyingAfter = vaults[vaultId].strategy.totalUnderlying();
         uint256 newSupply = totalSupply(vaultId);
-        // This is a rewrite of shareValueAfter >= shareValueBefore which also passes if newSupply is zero
+        // This is a rewrite of shareValueAfter >= shareValueBefore which also passes if newSupply is zero. ShareValue is defined as totalUnderlying/totalShares.
         require(underlyingAfter * supply >= underlyingBefore * newSupply, "!share decrease");
     }
 

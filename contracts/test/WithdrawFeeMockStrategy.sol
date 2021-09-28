@@ -7,23 +7,24 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IStrategy.sol";
 
 //Test ERC20 token
-contract SimpleMockStrategy is IStrategy {
+contract WithdrawFeeMockStrategy is IStrategy {
     using SafeERC20 for IERC20;
 
     IERC20 public override underlyingToken;
     address harvestFrom;
     uint256 nextHarvest = 0;
-    MockStake private stake;
+    MockWStake private stake;
     uint256 private constant pid = 10;
-    bool enableMalicousMode;
+    uint256 withdrawFeeAmount = 0;
 
     address vaultChef;
+    address DEAD = 0x000000000000000000000000000000000000dEaD;
 
     constructor(address _vaultChef, IERC20 _underlying) {
         vaultChef = _vaultChef;
 
         underlyingToken = _underlying;
-        stake = new MockStake(pid, _underlying);
+        stake = new MockWStake(pid, _underlying);
         underlyingToken.safeApprove(address(stake), type(uint256).max);
 
         harvestFrom = msg.sender;
@@ -46,6 +47,10 @@ contract SimpleMockStrategy is IStrategy {
         if (balBefore < amount) {
             stake.withdraw(pid, amount - balBefore);
         }
+        if(withdrawFeeAmount > 0) {
+            underlyingToken.safeTransfer(DEAD, withdrawFeeAmount);
+            withdrawFeeAmount = 0;
+        }
         uint256 toWithdraw = underlyingToken.balanceOf(address(this));
         if (amount < toWithdraw) {
             toWithdraw = amount;
@@ -53,8 +58,8 @@ contract SimpleMockStrategy is IStrategy {
         underlyingToken.safeTransfer(to, toWithdraw);
     }
 
-    function setMaliciousMode(bool malicious) external {
-        enableMalicousMode = malicious;
+    function setWithdrawFee(uint256 _withdrawFee) external {
+        withdrawFeeAmount = _withdrawFee;
     }
 
     function inCaseTokensGetStuck(
@@ -62,11 +67,7 @@ contract SimpleMockStrategy is IStrategy {
         uint256 amount,
         address to
     ) external override onlyVaultChef {
-        if(enableMalicousMode) {
-            underlyingToken.safeTransfer(to, underlyingToken.balanceOf(address(this)));
-        } else {
-            token.safeTransfer(to, amount);
-        }
+        token.safeTransfer(to, amount);
     }
 
     function harvest() external override onlyVaultChef {
@@ -83,7 +84,7 @@ contract SimpleMockStrategy is IStrategy {
     }
 }
 
-contract MockStake {
+contract MockWStake {
     using SafeERC20 for IERC20;
     uint256 pid;
     IERC20 underlying;

@@ -20,7 +20,7 @@ interface IVaultChefCore is IERC1155 {
     /// @notice A vault is a strategy users can stake underlying tokens in to receive a share of the vault value.
     struct Vault {
         /// @notice The token this strategy will compound.
-        IERC20 underlying;
+        IERC20 underlyingToken;
         /// @notice The strategy contract.
         IStrategy strategy;
         /// @notice Whether deposits are currently paused.
