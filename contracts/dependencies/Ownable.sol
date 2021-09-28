@@ -58,15 +58,16 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Transfers ownership of the contract to a pendingOwner
+     * @dev Transfers ownership of the contract to the pendingOwner.
      * Can only be called by the pendingOwner.
      */
     function transferOwnership() public virtual {
         require(_msgSender() == pendingOwner, "Ownable: caller is not the pendingOwner");
         require(pendingOwner != address(0), "Ownable: new owner is the zero address");
-        pendingOwner = address(0);
         _transferOwnership(pendingOwner);
+        pendingOwner = address(0);
     }
+
     /**
      * @dev Sets the pendingOwner, ownership is only transferred when they call transferOwnership.
      * Can only be called by the current owner.

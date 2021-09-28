@@ -101,6 +101,7 @@ contract MockStake {
 
     function userInfo(uint256 _pid, address user) public view returns (uint256 amount) {
         require(pid == _pid, "unsupported");
+        user; // shh
         return underlying.balanceOf(address(this));
     }
 }

@@ -29,7 +29,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
     event VaultAdded(uint256 indexed vaultId, IStrategy indexed strategy, uint256 performanceFeeBP);
     event VaultSet(uint256 indexed vaultId, uint256 performanceFeeBP);
     event VaultPaused(uint256 indexed vaultId, bool paused);
-    event vaultPanicked(uint256 indexed vaultId);
+    event VaultPanicked(uint256 indexed vaultId);
     event VaultHarvest(uint256 indexed vaultId, uint256 underlyingIncrease);
     event VaultInCaseTokenStuck(uint256 indexed vaultId, IERC20 indexed token, address indexed to, uint256 amount);
     event URIUpdated(string oldURI, string newURI);
@@ -90,20 +90,20 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
         return _withdrawSharesTo(vaultId, shares, minReceived, to);
     }
     
+    /// @notice isValidVault is implicit through nonDecreasingShareValue (gas optimization)
     function _withdrawSharesTo(
         uint256 vaultId,
         uint256 shares,
         uint256 minReceived,
         address to
     ) internal returns (uint256 underlyingReceived) {
-        require(isValidVault(vaultId), "!no vault");
         require(balanceOf(msg.sender, vaultId) >= shares, "!insufficient shares");
         require(shares > 0, "!zero shares");
         Vault memory vault = vaults[vaultId];
         
+        uint256 withdrawAmount = (shares * vault.strategy.totalUnderlying()) / totalSupply(vaultId);
         _burn(msg.sender, vaultId, shares);
 
-        uint256 withdrawAmount = (shares * vault.strategy.totalUnderlying()) / totalSupply(vaultId);
         uint256 balanceBefore = vault.underlying.balanceOf(to);
         vault.strategy.withdraw(to, withdrawAmount);
         withdrawAmount = vault.underlying.balanceOf(to) - balanceBefore;
@@ -166,6 +166,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
     }
 
     function setVault(uint256 vaultId, uint256 performanceFeeBP) external virtual override onlyOwner nonReentrant {
+        require(isValidVault(vaultId), "!no vault");
         require(performanceFeeBP <= MAX_PERFORMANCE_FEE_BP, "!too high");
         Vault storage vault = vaults[vaultId];
         vault.performanceFeeBP = performanceFeeBP;
@@ -183,7 +184,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
 
         vault.strategy.panic();
 
-        emit vaultPanicked(vaultId);
+        emit VaultPanicked(vaultId);
     }
 
     function pauseVault(uint256 vaultId, bool paused) external override onlyOwner nonReentrant {
@@ -238,6 +239,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
     
     /// @dev the nonDecreasingShareValue modifier requires the vault's share value to be nondecreasing over the operation.
     modifier nonDecreasingShareValue(uint256 vaultId) {
+        require(isValidVault(vaultId), "!no vault");
         uint256 supply = totalSupply(vaultId);
         uint256 underlyingBefore = vaults[vaultId].strategy.totalUnderlying();
         _;
@@ -250,6 +252,7 @@ contract VaultChefCore is ERC1155Supply, IVaultChefCore, Ownable, ReentrancyGuar
 
     /// @dev the nonDecreasingVaultValue modifier requires the vault's total underlying tokens to not decrease over the operation.
     modifier nonDecreasingUnderlyingValue(uint256 vaultId) {
+        require(isValidVault(vaultId), "!no vault");
         Vault storage vault = vaults[vaultId];
         uint256 balanceBefore = vault.strategy.totalUnderlying();
         _;

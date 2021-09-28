@@ -58,6 +58,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         external
         override
     {
+        require(isValidVault(vaultId), "!no vault");
         uint256 shares = (totalSupply(vaultId) * underlyingAmount) /
             vaults[vaultId].strategy.totalUnderlying();
         withdrawShares(vaultId, shares, 0);
@@ -65,6 +66,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     /// @notice withdraws the complete position of `msg.sender` to `msg.sender`.
     function emergencyWithdraw(uint256 vaultId) external override {
+        require(isValidVault(vaultId), "!no vault");
         uint256 shares = balanceOf(msg.sender, vaultId);
         withdrawShares(vaultId, shares, 0);
     }
