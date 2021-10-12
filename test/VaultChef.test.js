@@ -100,7 +100,7 @@ describe("VaultChef testing", function () {
   });
   it("It should not allow adding a vault with a performance fee > 10%", async function () {
     await expect(VaultChef.connect(owner).addVault(MockStrategy.address, 1001))
-      .to.be.revertedWith("!too high");
+      .to.be.revertedWith("!valid");
     expect(await VaultChef.connect(owner).addVault(MockStrategy.address, 1000))
       .to.emit(VaultChef, "VaultAdded")
       .withArgs(0, MockStrategy.address, 1000);
@@ -110,6 +110,13 @@ describe("VaultChef testing", function () {
     expect(await VaultChef.poolLength()).to.be.equals(0);
   });
 
+
+  it("It should not allow ownership transfer to pending owner after renunciation", async function () {
+    await VaultChef.connect(owner).setPendingOwner(user1.address);
+    await VaultChef.connect(owner).renounceOwnership();
+    await expect(VaultChef.connect(user1).transferOwnership())
+      .to.be.revertedWith("Ownable: caller is not the pendingOwner");
+  });
 
   it("It should allow governance to withdraw stuck tokens from the vaultchef", async function () {
     await TestToken.connect(owner).mint(1000);
@@ -144,7 +151,7 @@ describe("VaultChef testing", function () {
   });
 
   it("It should have dummy masterchef startBlock function", async function () {
-    expect(await VaultChef.startBlock()).to.be.equals(0);
+    expect(await VaultChef.startBlock()).to.be.gt(0);
   });
 
   it("It should have zero allocPoints", async function () {
@@ -169,7 +176,7 @@ describe("VaultChef testing", function () {
       await TestToken.connect(owner).transfer(MockStrategy.address, 1000);
       await MockStrategy.setMaliciousMode(true);
       await expect(VaultChef.connect(owner).inCaseVaultTokensGetStuck(0, TestToken2.address, user2.address, 1000))
-        .to.be.revertedWith("!vault balance decrease");
+        .to.be.revertedWith("!unsafe");
     });
     it("It should allow governance to withdraw stuck non-staking tokens from the strategy", async function () {
       await TestToken2.connect(owner).mint(1000);
@@ -242,12 +249,11 @@ describe("VaultChef testing", function () {
     it("It should have correct first vault info", async function () {
       const vault = await VaultChef.vaultInfo(0);
       expect(vault[0]).to.be.equals(TestToken.address); // underlying
-      expect(vault[1]).to.be.equals(MockStrategy.address); // strategy
-      expect(vault[2]).to.be.equals(false); // paused
-      expect(vault[3]).to.be.equals(false); // panicked
-      expect(vault[4]).to.be.equals(0); // panickTimestamp
-      expect(vault[5]).to.be.equals(0); // lastHarvestTimestamp
-      expect(vault[6]).to.be.equals(500); // depositFeeBP
+      expect(vault[1]).to.be.equals(0); // lastHarvestTimestamp
+      expect(vault[2]).to.be.equals(MockStrategy.address); // strategy
+      expect(vault[3]).to.be.equals(500); // performance fee
+      expect(vault[4]).to.be.equals(false); // paused
+      expect(vault[5]).to.be.equals(false); // panicked
     });
 
     it("It should have zero stake and supply", async function () {
@@ -301,6 +307,56 @@ describe("VaultChef testing", function () {
           .to.be.revertedWith("!min not received");
       });
 
+      it("It should revert pull based deposits if not whitelisted", async function () {
+        const amount = ethers.utils.parseEther("1.0");
+        await expect(MockZap.connect(user1).depositPull(0, amount, 0))
+          .to.be.revertedWith("!whitelist");
+      });
+
+      it("It should revert pull based deposits if insufficient allowance given to zapping contract", async function () {
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(false);
+        await expect(VaultChef.connect(owner).setPullDepositor(MockZap.address, true))
+          .to.emit(VaultChef, "PullDepositorSet")
+          .withArgs(MockZap.address, true);
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(true);
+        const amount = ethers.utils.parseEther("1.0");
+        await expect(MockZap.connect(user1).depositPull(0, amount, 0))
+          .to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+      });
+
+      it("It should allow for pull-based depositing", async function () {
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(false);
+        await expect(VaultChef.connect(owner).setPullDepositor(MockZap.address, true))
+          .to.emit(VaultChef, "PullDepositorSet")
+          .withArgs(MockZap.address, true);
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(true);
+
+        const amount = ethers.utils.parseEther("1.0");
+        const balanceBefore = await TestToken.balanceOf(user1.address);
+
+        await TestToken.connect(user1).approve(MockZap.address, amount);
+        await expect(MockZap.connect(user1).depositPull(0, amount, amount))
+          .to.emit(VaultChef, "Deposit")
+          .withArgs(0, MockZap.address, amount, amount); // vaultId, user, shares, underlying
+        const balanceAfter = await TestToken.balanceOf(user1.address);
+        expect(balanceBefore.sub(balanceAfter)).to.be.equal(amount);
+        expect(await VaultChef.balanceOf(user1.address, 0)).to.be.equal(amount);
+        expect(await VaultChef.totalSupply(0)).to.be.equal(amount);
+      });
+
+      it("It should revert pull-based deposits if minimum shares is set too high", async function () {
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(false);
+        await expect(VaultChef.connect(owner).setPullDepositor(MockZap.address, true))
+          .to.emit(VaultChef, "PullDepositorSet")
+          .withArgs(MockZap.address, true);
+        expect(await VaultChef.canDoPullDeposits(MockZap.address)).to.be.equal(true);
+
+        const amount = ethers.utils.parseEther("1.0");
+        await TestToken.connect(user1).approve(MockZap.address, amount);
+        await expect(MockZap.connect(user1).depositPull(0, amount, amount.add(1)))
+          .to.be.revertedWith("!min not received");
+      });
+
       it("It should allow depositing and withdrawing 1e34 tokens without overflow", async function () {
         const amount1 = BigNumber.from("9").mul(BigNumber.from("10").pow(BigNumber.from("33")));
         const amount2 = BigNumber.from("1").mul(BigNumber.from("10").pow(BigNumber.from("33")));
@@ -328,7 +384,15 @@ describe("VaultChef testing", function () {
       });
 
 
-      it("It should revert deposits over 1e34 underlyin tokens", async function () {
+      it("It should use correct gas on depositUnderlying with minimum ", async function () {
+        const deposit1amount = ethers.utils.parseEther("1.0");
+        const tx = await VaultChef.connect(user1).depositUnderlying(0, deposit1amount, false, deposit1amount);
+        const receipt = await tx.wait();
+        expect(receipt.gasUsed).to.be.equal(194778);
+
+      });
+
+      it("It should revert deposits over 1e34 underlying tokens", async function () {
         const amount = BigNumber.from("1").add(BigNumber.from("10").pow(BigNumber.from("34")));
         await TestToken.connect(user1).mint(amount);
         await TestToken.connect(user1).approve(VaultChef.address, amount);
@@ -382,6 +446,13 @@ describe("VaultChef testing", function () {
           expect(await VaultChef.totalSupply(0)).to.be.equal(0);
           expect(await VaultChef.totalUnderlying(0)).to.be.equal(0);
           expect(await TestToken.balanceOf(user1.address)).to.be.equal(startBalUser1);
+        });
+
+        it("It should use correct gas on withdrawShares with minimum ", async function () {
+          const tx = await VaultChef.connect(user1).withdrawShares(0, deposit1amount, deposit1amount);
+          const receipt = await tx.wait();
+          expect(receipt.gasUsed).to.eq(103344);
+
         });
 
         it("It should revert withdrawShares with too high minimum", async function () {
@@ -444,11 +515,9 @@ describe("VaultChef testing", function () {
               .to.emit(VaultChef, "VaultPanicked")
               .withArgs(0); // vaultId, user, shares, underlying
 
-            const timestamp = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
             const vault = await VaultChef.vaultInfo(0);
-            expect(vault[2]).to.be.equals(true); // paused
-            expect(vault[3]).to.be.equals(true); // panicked
-            expect(vault[4]).to.be.equal(timestamp);
+            expect(vault[4]).to.be.equals(true); // paused
+            expect(vault[5]).to.be.equals(true); // panicked
           });
 
           it("It should not be unpausable", async function () {
@@ -479,7 +548,7 @@ describe("VaultChef testing", function () {
 
           it("It should be marked as paused", async function () {
             const vault = await VaultChef.vaultInfo(0);
-            expect(vault[2]).to.be.equals(true); // paused
+            expect(vault[4]).to.be.equals(true); // paused
           });
 
           it("It should not be pausable again", async function () {
@@ -492,7 +561,7 @@ describe("VaultChef testing", function () {
               .to.emit(VaultChef, "VaultPaused")
               .withArgs(0, false);
             const vault = await VaultChef.vaultInfo(0);
-            expect(vault[2]).to.be.equals(false); // paused
+            expect(vault[4]).to.be.equals(false); // paused
           });
 
           it("It should not allow deposits", async function () {
@@ -541,11 +610,9 @@ describe("VaultChef testing", function () {
               .to.emit(VaultChef, "VaultPanicked")
               .withArgs(0); // vaultId, user, shares, underlying
 
-            const timestamp = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
             const vault = await VaultChef.vaultInfo(0);
-            expect(vault[2]).to.be.equals(true); // paused
-            expect(vault[3]).to.be.equals(true); // panicked
-            expect(vault[4]).to.be.equal(timestamp);
+            expect(vault[4]).to.be.equals(true); // paused
+            expect(vault[5]).to.be.equals(true); // panicked
           });
 
           it("It should allow share safeTransferFrom", async function () {
@@ -579,11 +646,11 @@ describe("VaultChef testing", function () {
 
           it("It should allow updating the deposit fee and correctly account for new deposit fee on harvest", async function () {
             expect(await VaultChef.connect(owner).setVault(0, 100))
-              .to.emit(VaultChef, "VaultSet")
+              .to.emit(VaultChef, "VaultPerformanceFeeSet")
               .withArgs(0, 100);
 
             const vault = await VaultChef.vaultInfo(0);
-            expect(vault[6]).to.be.equals(100); // depositFeeBP
+            expect(vault[3]).to.be.equals(100); // performance fee
 
             // Validate that there are no side effects
             expect(await VaultChef.balanceOf(user1.address, 0)).to.be.equal(deposit1amount);
@@ -607,10 +674,10 @@ describe("VaultChef testing", function () {
 
           it("It should not allow setting a performance fee > 10%", async function () {
             expect(await VaultChef.connect(owner).setVault(0, 1000))
-              .to.emit(VaultChef, "VaultSet")
+              .to.emit(VaultChef, "VaultPerformanceFeeSet")
               .withArgs(0, 1000);
             await expect(VaultChef.connect(owner).setVault(0, 1001))
-              .to.be.revertedWith("!too high");
+              .to.be.revertedWith("!valid");
           });
           it("It should revert withdrawSharesTo since msg.sender is a contract", async function () {
             await expect(VaultChef.connect(user1).withdrawSharesTo(0, deposit1amount, BigNumber.from("1095022624434389140"), TestToken.address))
@@ -727,16 +794,20 @@ describe("VaultChef testing", function () {
 
           it("It should have valid harvest timestamp", async function () {
             const timestamp = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
-            expect((await VaultChef.vaultInfo(0))[5]).to.be.equal(timestamp);
+            expect((await VaultChef.vaultInfo(0))[1]).to.be.equal(timestamp);
           });
         });
       });
     });
     describe("With second withdraw fee mock vault (0% performance fee)", function () {
       this.beforeEach("Should add vault", async function () {
+        expect(await VaultChef.strategyExists(WFeeMockStrategy.address)).to.be.equal(false);
+        expect(await VaultChef.strategyVaultId(WFeeMockStrategy.address)).to.be.equal(0);
         expect(await VaultChef.connect(owner).addVault(WFeeMockStrategy.address, 0))
           .to.emit(VaultChef, "VaultAdded")
           .withArgs(1, WFeeMockStrategy.address, 0);
+          expect(await VaultChef.strategyExists(WFeeMockStrategy.address)).to.be.equal(true);
+          expect(await VaultChef.strategyVaultId(WFeeMockStrategy.address)).to.be.equal(1);
       });
 
       it("isValidVault should return true for the first two indices", async function () {

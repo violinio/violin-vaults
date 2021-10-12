@@ -65,7 +65,6 @@ abstract contract Ownable is Context {
         require(_msgSender() == pendingOwner, "Ownable: caller is not the pendingOwner");
         require(pendingOwner != address(0), "Ownable: new owner is the zero address");
         _transferOwnership(pendingOwner);
-        pendingOwner = address(0);
     }
 
     /**
@@ -86,6 +85,7 @@ abstract contract Ownable is Context {
     function _transferOwnership(address newOwner) internal virtual {
         address oldOwner = _owner;
         _owner = newOwner;
+        pendingOwner = address(0);
         emit OwnershipTransferred(oldOwner, newOwner);
     }
 }

@@ -21,18 +21,16 @@ interface IVaultChefCore is IERC1155 {
     struct Vault {
         /// @notice The token this strategy will compound.
         IERC20 underlyingToken;
+        /// @notice The timestamp of the last harvest, set to zero while no harvests have happened.
+        uint96 lastHarvestTimestamp;
         /// @notice The strategy contract.
         IStrategy strategy;
+        /// @notice The performance fee portion of the harvests that is sent to the feeAddress, denominated by 10,000.
+        uint16 performanceFeeBP;
         /// @notice Whether deposits are currently paused.
         bool paused;
         /// @notice Whether the vault has panicked which means the funds are pulled from the strategy and it is paused forever.
         bool panicked;
-        /// @notice The timestamp at which the vault panicked, set to zero while not panicked.
-        uint256 panicTimestamp;
-        /// @notice The timestamp of the last harvest, set to zero while no harvests have happened.
-        uint256 lastHarvestTimestamp;
-        /// @notice The performance fee portion of the harvests that is sent to the feeAddress, denominated by 10,000.
-        uint256 performanceFeeBP;
     }
 
     /**
@@ -105,7 +103,7 @@ interface IVaultChefCore is IERC1155 {
      * @param performanceFeeBP The percentage of the harvest rewards that are given to the governance, denominated by 10,000 and maximum 5%.
      * @dev Can only be called by owner.
      */
-    function addVault(IStrategy strategy, uint256 performanceFeeBP) external;
+    function addVault(IStrategy strategy, uint16 performanceFeeBP) external;
 
     /**
      * @notice Updates the performanceFee of the vault.
@@ -113,8 +111,14 @@ interface IVaultChefCore is IERC1155 {
      * @param performanceFeeBP The percentage of the harvest rewards that are given to the governance, denominated by 10,000 and maximum 5%.
      * @dev Can only be called by owner.
      */
-    function setVault(uint256 vaultId, uint256 performanceFeeBP) external;
-
+    function setVault(uint256 vaultId, uint16 performanceFeeBP) external;
+    /**
+     * @notice Allows the `pullDepositor` to create pull-based deposits (useful for zapping contract).
+     * @notice Having a whitelist is not necessary for this functionality as it is safe but upon defensive code recommendations one was added in.
+     * @dev Can only be called by owner.
+     */
+    function setPullDepositor(address pullDepositor, bool isAllowed) external;
+    
     /**
      * @notice Withdraws funds from the underlying staking contract to the strategy and irreversibly pauses the vault.
      * @param vaultId The id of the vault.

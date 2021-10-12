@@ -36,6 +36,8 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /// @notice how many vaults are not paused.
     uint256 private activeVaults;
 
+    uint256 private immutable _startBlock;
+
     /// @notice mapping that returns true if the strategy is set as a vault.
     mapping(IStrategy => bool) public strategyExists;
     /// @notice Utility mapping for UI to figure out the vault id of a strategy.
@@ -43,13 +45,20 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     event ChangeMetadata(string newName, string newSymbol, uint256 newDecimals);
 
+    constructor() {
+        _startBlock = block.number;
+    }
+
     //** MASTERCHEF COMPATIBILITY **/
 
-    /// @notice Deposits `amount` of underlying tokens in the vault at `vaultId`.
+    /// @notice Deposits `underlyingAmount` of underlying tokens in the vault at `vaultId`.
     /// @dev This function is identical to depositUnderlying, duplication has been permitted to match the masterchef interface.
     /// @dev Event emitted on lower level.
-    function deposit(uint256 vaultId, uint256 amount) external override {
-        depositUnderlying(vaultId, amount, false, 0);
+    function deposit(uint256 vaultId, uint256 underlyingAmount)
+        external
+        override
+    {
+        depositUnderlying(vaultId, underlyingAmount, false, 0);
     }
 
     /// @notice withdraws `amount` of underlying tokens from the vault at `vaultId` to `msg.sender`.
@@ -57,16 +66,21 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     function withdraw(uint256 vaultId, uint256 underlyingAmount)
         external
         override
+        validVault(vaultId)
     {
-        require(isValidVault(vaultId), "!no vault");
+        uint256 underlyingBefore = vaults[vaultId].strategy.totalUnderlying();
+        require(underlyingBefore != 0, "!empty");
         uint256 shares = (totalSupply(vaultId) * underlyingAmount) /
-            vaults[vaultId].strategy.totalUnderlying();
+            underlyingBefore;
         withdrawShares(vaultId, shares, 0);
     }
 
     /// @notice withdraws the complete position of `msg.sender` to `msg.sender`.
-    function emergencyWithdraw(uint256 vaultId) external override {
-        require(isValidVault(vaultId), "!no vault");
+    function emergencyWithdraw(uint256 vaultId)
+        external
+        override
+        validVault(vaultId)
+    {
         uint256 shares = balanceOf(msg.sender, vaultId);
         withdrawShares(vaultId, shares, 0);
     }
@@ -75,9 +89,10 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /// @dev allocPoint is either 0 or 1. Zero means paused while one means active.
     /// @dev _lastRewardBlock and _accTokenPerShare are zero since there is no concept of rewards in the VaultChef.
     function poolInfo(uint256 vaultId)
-        public
+        external
         view
         override
+        validVault(vaultId)
         returns (
             IERC20 _lpToken,
             uint256 _allocPoint,
@@ -85,7 +100,6 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
             uint256 _accTokenPerShare
         )
     {
-        require(isValidVault(vaultId), "!no vault");
         uint256 allocPoints = vaults[vaultId].paused ? 0 : 1;
         return (vaults[vaultId].underlyingToken, allocPoints, 0, 0);
     }
@@ -95,9 +109,9 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         external
         view
         override
+        validVault(vaultId)
         returns (uint256)
     {
-        require(isValidVault(vaultId), "!no vault");
         return vaults[vaultId].strategy.totalUnderlying();
     }
 
@@ -113,8 +127,8 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     /// @notice the startBlock function indicates when rewards start in a masterchef, since there is no notion of rewards, it returns zero.
     /// @dev This function is kept for compatibility with third-party tools.
-    function startBlock() external pure override returns (uint256) {
-        return 0;
+    function startBlock() external view override returns (uint256) {
+        return _startBlock;
     }
 
     /// @notice userInfo returns the user their stake information about a specific vault in a format compatible with the masterchef userInfo.
@@ -124,9 +138,9 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         external
         view
         override
+        validVault(vaultId)
         returns (uint256 _amount, uint256 _rewardDebt)
     {
-        require(isValidVault(vaultId), "!no vault");
         uint256 supply = totalSupply((vaultId));
         uint256 underlyingAmount = supply == 0
             ? 0
@@ -138,7 +152,10 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /** Active vault accounting for allocpoints **/
 
     /// @dev Add accounting for the allocPoints and also locking if the strategy already exists.
-    function addVault(IStrategy strategy, uint256 performanceFeeBP) public override {
+    function addVault(IStrategy strategy, uint16 performanceFeeBP)
+        public
+        override
+    {
         require(!strategyExists[strategy], "!exists");
         strategyExists[strategy] = true;
         strategyVaultId[strategy] = vaults.length;

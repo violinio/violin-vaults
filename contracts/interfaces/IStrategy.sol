@@ -15,7 +15,11 @@ interface IStrategy {
     /**
      * @notice Gets the total amount of tokens either idle in this strategy or staked in an underlying strategy.
      */
-    function totalUnderlying() external view returns (uint256);
+    function totalUnderlying() external view returns (uint256 totalUnderlying);
+    /**
+     * @notice Gets the total amount of tokens either idle in this strategy or staked in an underlying strategy and only the tokens actually staked.
+     */
+    function totalUnderlyingAndStaked() external view returns (uint256 totalUnderlying, uint256 totalUnderlyingStaked);
 
     /**
      * @notice The panic function unstakes all staked funds from the strategy and leaves them idle in the strategy for withdrawal
@@ -23,8 +27,11 @@ interface IStrategy {
      */
     function panic() external;
 
+    /**
+     * @notice Executes a harvest on the underlying vaultchef.
+     * @dev Authority: This function must only be callable by the vaultchef.
+     */
     function harvest() external;
-
     /**
      * @notice Deposits `amount` amount of underlying tokens in the underlying strategy
      * @dev Authority: This function must only be callable by the VaultChef.

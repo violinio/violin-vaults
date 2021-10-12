@@ -32,6 +32,11 @@ contract SimpleMockStrategy is IStrategy {
     function totalUnderlying() external view override returns (uint256) {
         return stake.userInfo(pid, address(this)) + underlyingToken.balanceOf(address(this));
     }
+    
+    function totalUnderlyingAndStaked() external view override returns (uint256, uint256) {
+        uint256 staked = stake.userInfo(pid, address(this));
+        return (staked + underlyingToken.balanceOf(address(this)), staked);
+    }
 
     function deposit(uint256 amount) external override onlyVaultChef {
         stake.deposit(pid, amount);
