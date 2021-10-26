@@ -32,7 +32,7 @@ contract VaultChefCore is
     /// @notice The maximum performance fee settable. This is the % of the harvests that are minted to the owner.
     uint256 private constant MAX_PERFORMANCE_FEE_BP = 1000;
 
-    /// @notice The set of contracts that allow for pull-based deposits. Unecessary but trims down privileges further.
+    /// @notice The set of contracts that allow for pull-based deposits. Unnecessary but trims down privileges further.
     mapping(address => bool) public canDoPullDeposits;
 
     event VaultAdded(
@@ -254,13 +254,14 @@ contract VaultChefCore is
         vault.lastHarvestTimestamp = uint96(block.timestamp);
 
         // The performance fee is minted to the owner in shares to reduce governance risk, strategy complexity and gas fees.
-        if (underlyingIncrease > 0 && owner() != address(0)) {
+        address feeRecipient = owner();
+        if (underlyingIncrease > 0 && feeRecipient != address(0)) {
             uint256 performanceFeeShares = (underlyingIncrease *
                 totalSupply(vaultId) *
                 vault.performanceFeeBP) /
                 underlyingAfter /
                 10000;
-            _mint(owner(), vaultId, performanceFeeShares, "");
+            _mint(feeRecipient, vaultId, performanceFeeShares, "");
         }
 
         emit VaultHarvest(vaultId, underlyingIncrease);
@@ -363,7 +364,7 @@ contract VaultChefCore is
         emit InCaseTokenStuck(token, to, amount);
     }
 
-    /// @notice All though the strategy could contain underlying tokens, this function reverts if governance tries to withdraw these.
+    /// @notice Although the strategy could contain underlying tokens, this function reverts if governance tries to withdraw these.
     function inCaseVaultTokensGetStuck(
         uint256 vaultId,
         IERC20 token,
@@ -436,7 +437,7 @@ contract VaultChefCore is
     }
 
     //** REQUIRED OVERRIDES *//
-    /// @dev Due to multiple inheritence, we require to overwrite the totalSupply method.
+    /// @dev Due to multiple inheritance, we require to overwrite the totalSupply method.
     function totalSupply(uint256 id)
         public
         view

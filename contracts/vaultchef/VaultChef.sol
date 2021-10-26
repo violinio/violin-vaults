@@ -28,7 +28,7 @@ import "./VaultChefCore.sol";
  * @dev For third-party reviewers: The security of this extension can be validated since no internal state is modified on the parent contract.
  */
 contract VaultChef is VaultChefCore, IVaultChefWrapper {
-    // ERC-20 metadata for etherscan compatiblity.
+    // ERC-20 metadata for etherscan compatibility.
     string private _name = "Violin Vault Receipt";
     string private _symbol = "vVault";
     uint8 private _decimals = 18;
@@ -163,7 +163,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         super.addVault(strategy, performanceFeeBP);
     }
 
-    /// @dev _pauseVault is overriden to add accounting for the allocPoints
+    /// @dev _pauseVault is overridden to add accounting for the allocPoints
     /// @dev It should be noted that the first requirement is only present for auditability since it is redundant in the parent contract.
     function _pauseVault(uint256 vaultId, bool paused) internal override {
         require(paused != vaults[vaultId].paused, "!set");

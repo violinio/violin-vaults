@@ -67,7 +67,7 @@ contract VaultChefGovernor is AccessControlEnumerable, IERC1155Receiver {
         revokeRole(DEFAULT_ADMIN_ROLE, account);
     }
 
-    /// @notice Generic function proxy, only callabe by the DEFAULT_ADMIN.
+    /// @notice Generic function proxy, only callable by the DEFAULT_ADMIN.
     function executeTransaction(
         address target,
         uint256 value,
