@@ -93,7 +93,7 @@ interface IVaultChefCore is IERC1155 {
      * @return underlyingIncrease The amount of underlying tokens generated.
      * @dev Can only be called by owner.
      */
-    function harvest(uint256 vaultid)
+    function harvest(uint256 vaultId)
         external
         returns (uint256 underlyingIncrease);
 

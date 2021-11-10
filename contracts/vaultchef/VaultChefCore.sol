@@ -92,6 +92,7 @@ contract VaultChefCore is
         uint256 minSharesReceived
     )
         public
+        virtual
         override
         validVault(vaultId)
         nonReentrant
@@ -150,6 +151,7 @@ contract VaultChefCore is
         uint256 minReceived
     )
         public
+        virtual
         override
         validVault(vaultId)
         nonDecreasingShareValue(vaultId)
@@ -165,7 +167,8 @@ contract VaultChefCore is
         uint256 minReceived,
         address to
     )
-        external
+        public
+        virtual
         override
         validVault(vaultId)
         nonDecreasingShareValue(vaultId)
@@ -227,7 +230,8 @@ contract VaultChefCore is
 
     /// @dev nonDecreasingUnderlyingValue(vaultId) omitted since it is implicitly defined.
     function harvest(uint256 vaultId)
-        external
+        public
+        virtual
         override
         validVault(vaultId)
         nonReentrant

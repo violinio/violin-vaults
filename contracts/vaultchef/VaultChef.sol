@@ -45,8 +45,9 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     event ChangeMetadata(string newName, string newSymbol, uint256 newDecimals);
 
-    constructor() {
+    constructor(address _owner) {
         _startBlock = block.number;
+        _transferOwnership(_owner);
     }
 
     //** MASTERCHEF COMPATIBILITY **/
@@ -55,7 +56,8 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /// @dev This function is identical to depositUnderlying, duplication has been permitted to match the masterchef interface.
     /// @dev Event emitted on lower level.
     function deposit(uint256 vaultId, uint256 underlyingAmount)
-        external
+        public
+        virtual
         override
     {
         depositUnderlying(vaultId, underlyingAmount, false, 0);
@@ -64,7 +66,8 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     /// @notice withdraws `amount` of underlying tokens from the vault at `vaultId` to `msg.sender`.
     /// @dev Event emitted on lower level.
     function withdraw(uint256 vaultId, uint256 underlyingAmount)
-        external
+        public
+        virtual
         override
         validVault(vaultId)
     {
@@ -77,7 +80,8 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     /// @notice withdraws the complete position of `msg.sender` to `msg.sender`.
     function emergencyWithdraw(uint256 vaultId)
-        external
+        public
+        virtual
         override
         validVault(vaultId)
     {
@@ -224,7 +228,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         uint256 id,
         uint256 amount,
         bytes memory data
-    ) public override nonReentrant {
+    ) public virtual override nonReentrant {
         super.safeTransferFrom(from, to, id, amount, data);
     }
 
@@ -235,7 +239,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         uint256[] memory ids,
         uint256[] memory amounts,
         bytes memory data
-    ) public override nonReentrant {
+    ) public virtual override nonReentrant {
         super.safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 }

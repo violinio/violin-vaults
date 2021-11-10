@@ -15,7 +15,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 5000,
+        runs: 1000,
       },
     },
   },
@@ -90,4 +90,8 @@ module.exports = {
     runOnCompile: true,
     disambiguatePaths: false,
   },
+  deterministicDeployment: (chainId) =>  ({
+     "factory": "0xdbfD940f57E63049039404c1b35b9e47e90F2B3e"
+    })
+  ,
 };
