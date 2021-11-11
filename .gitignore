@@ -5,7 +5,6 @@ node_modules
 bin
 cache
 artifacts
-deployments
 
 coverage
 coverage.json

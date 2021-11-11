@@ -18,7 +18,7 @@ import "../interfaces/IOwnable.sol";
  */
 contract VaultChefGovernor is AccessControlEnumerable, IERC1155Receiver {
     /// @dev The underlying vaultChef to administer.
-    IVaultChef public vaultChef;
+    IVaultChef public immutable vaultChef;
 
     /// @dev Can add new vaults to the vaultChef.
     bytes32 public constant ADD_VAULT_ROLE = keccak256("ADD_VAULT_ROLE");
@@ -36,13 +36,11 @@ contract VaultChefGovernor is AccessControlEnumerable, IERC1155Receiver {
         address indexed to
     );
 
-    constructor(IVaultChef _vaultChef) {
+    constructor(IVaultChef _vaultChef, address _owner) {
         vaultChef = _vaultChef;
         /// @dev Make msg.sender the default admin
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        grantAllRoles(msg.sender);
-        /// @dev Claim ownership
-        transferOwnership();
+        _setupRole(DEFAULT_ADMIN_ROLE, _owner);
+        _grantAllRoles(_owner);
     }
 
     /// @notice Grants an account all roles. Must be called from a DEFAULT_ADMIN.
@@ -50,10 +48,14 @@ contract VaultChefGovernor is AccessControlEnumerable, IERC1155Receiver {
         public
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        grantRole(DEFAULT_ADMIN_ROLE, account);
-        grantRole(ADD_VAULT_ROLE, account);
-        grantRole(SET_VAULT_ROLE, account);
-        grantRole(PAUSE_VAULT_ROLE, account);
+        _grantAllRoles(account);
+    }
+
+    function _grantAllRoles(address account) internal {
+        _setupRole(DEFAULT_ADMIN_ROLE, account);
+        _setupRole(ADD_VAULT_ROLE, account);
+        _setupRole(SET_VAULT_ROLE, account);
+        _setupRole(PAUSE_VAULT_ROLE, account);
     }
 
     /// @notice Revokes all roles from an account. Must be called by a DEFAULT_ADMIN.
@@ -165,14 +167,11 @@ contract VaultChefGovernor is AccessControlEnumerable, IERC1155Receiver {
     }
 
     function transferOwnership() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        IOwnable(address(vaultChef)).transferOwnership();
+        _transferOwnership();
     }
 
-    function setPendingOwner(address newPendingOwner)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        IOwnable(address(vaultChef)).setPendingOwner(newPendingOwner);
+    function _transferOwnership() internal {
+        IOwnable(address(vaultChef)).transferOwnership();
     }
 
     function onERC1155Received(
