@@ -2,7 +2,7 @@ const { NonceManager } = require("@ethersproject/experimental");
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 const etherscanChains = ["poly", "bsc", "poly_mumbai", "ftm", "arbitrum"];
-const sourcifyChains = ["xdai", "celo", "avax", "avax_fuji", "arbitrum"];
+const sourcifyChains = ["xdai", "celo", "avax", "avax_fuji", "arbitrum", "cro"];
 
 const main = async function (hre) {
     const { deployments, getNamedAccounts } = hre;
@@ -37,12 +37,12 @@ const main = async function (hre) {
 
     const chain = hre.network.name;
     try {
-        await verify(hre, chain, vaultchef.address, [deployer]);
+        await verify(hre, chain, vaultchef.address, [signer.address]);
     }catch(error) {
         console.log(error);
     }
     try {
-        await verify(hre, chain, governor.address, [vaultchef.address, deployer]);
+        await verify(hre, chain, governor.address, [vaultchef.address, signer.address]);
     }catch(error) {
         console.log(error);
     }
