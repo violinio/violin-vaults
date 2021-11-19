@@ -4,6 +4,7 @@ pragma solidity ^0.8.6;
 
 import "./IMasterChef.sol";
 import "./IERC20Metadata.sol";
+import "./IStrategy.sol";
 
 interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
      /**
@@ -30,5 +31,12 @@ interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
      * @param newURI The new ERC-1155 metadata URI.
      */
     function setURI(string memory newURI) external;
+
+    /// @notice mapping that returns true if the strategy is set as a vault.
+    function strategyExists(IStrategy strategy) external view returns(bool);
+
+
+    /// @notice Utility mapping for UI to figure out the vault id of a strategy.
+    function strategyVaultId(IStrategy strategy) external view returns(uint256);
 
 }

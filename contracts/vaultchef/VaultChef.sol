@@ -39,9 +39,9 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
     uint256 private immutable _startBlock;
 
     /// @notice mapping that returns true if the strategy is set as a vault.
-    mapping(IStrategy => bool) public strategyExists;
+    mapping(IStrategy => bool) public override strategyExists;
     /// @notice Utility mapping for UI to figure out the vault id of a strategy.
-    mapping(IStrategy => uint256) public strategyVaultId;
+    mapping(IStrategy => uint256) public override strategyVaultId;
 
     event ChangeMetadata(string newName, string newSymbol, uint256 newDecimals);
 
