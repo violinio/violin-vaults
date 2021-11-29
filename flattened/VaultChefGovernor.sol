@@ -1,8 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIXED
 
-pragma solidity ^0.8.6;
+// File @openzeppelin/contracts/utils/introspection/IERC165.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/introspection/IERC165.sol)
 
-
+pragma solidity ^0.8.0;
 
 /**
  * @dev Interface of the ERC165 standard, as defined in the
@@ -24,6 +26,12 @@ interface IERC165 {
      */
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 }
+
+// File @openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC1155/IERC1155Receiver.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev _Available since v3.1._
@@ -71,6 +79,12 @@ interface IERC1155Receiver is IERC165 {
         bytes calldata data
     ) external returns (bytes4);
 }
+
+// File @openzeppelin/contracts/access/IAccessControl.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (access/IAccessControl.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev External interface of AccessControl declared to support ERC165 detection.
@@ -156,6 +170,12 @@ interface IAccessControl {
     function renounceRole(bytes32 role, address account) external;
 }
 
+// File @openzeppelin/contracts/access/IAccessControlEnumerable.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (access/IAccessControlEnumerable.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev External interface of AccessControlEnumerable declared to support ERC165 detection.
  */
@@ -181,6 +201,12 @@ interface IAccessControlEnumerable is IAccessControl {
     function getRoleMemberCount(bytes32 role) external view returns (uint256);
 }
 
+// File @openzeppelin/contracts/utils/Context.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/Context.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -200,6 +226,12 @@ abstract contract Context {
         return msg.data;
     }
 }
+
+// File @openzeppelin/contracts/utils/Strings.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/Strings.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev String operations.
@@ -264,6 +296,12 @@ library Strings {
     }
 }
 
+// File @openzeppelin/contracts/utils/introspection/ERC165.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/introspection/ERC165.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Implementation of the {IERC165} interface.
  *
@@ -286,6 +324,15 @@ abstract contract ERC165 is IERC165 {
         return interfaceId == type(IERC165).interfaceId;
     }
 }
+
+// File @openzeppelin/contracts/access/AccessControl.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (access/AccessControl.sol)
+
+pragma solidity ^0.8.0;
+
+
+
 
 /**
  * @dev Contract module that allows children to implement role-based access
@@ -430,7 +477,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * purpose is to provide a mechanism for accounts to lose their privileges
      * if they are compromised (such as when a trusted device is misplaced).
      *
-     * If the calling account had been granted `role`, emits a {RoleRevoked}
+     * If the calling account had been revoked `role`, emits a {RoleRevoked}
      * event.
      *
      * Requirements:
@@ -458,6 +505,8 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * Using this function in any other way is effectively circumventing the admin
      * system imposed by {AccessControl}.
      * ====
+     *
+     * NOTE: This function is deprecated in favor of {_grantRole}.
      */
     function _setupRole(bytes32 role, address account) internal virtual {
         _grantRole(role, account);
@@ -474,20 +523,36 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
         emit RoleAdminChanged(role, previousAdminRole, adminRole);
     }
 
-    function _grantRole(bytes32 role, address account) private {
+    /**
+     * @dev Grants `role` to `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
             emit RoleGranted(role, account, _msgSender());
         }
     }
 
-    function _revokeRole(bytes32 role, address account) private {
+    /**
+     * @dev Revokes `role` from `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _revokeRole(bytes32 role, address account) internal virtual {
         if (hasRole(role, account)) {
             _roles[role].members[account] = false;
             emit RoleRevoked(role, account, _msgSender());
         }
     }
 }
+
+// File @openzeppelin/contracts/utils/structs/EnumerableSet.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/structs/EnumerableSet.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Library for managing
@@ -842,6 +907,14 @@ library EnumerableSet {
     }
 }
 
+// File @openzeppelin/contracts/access/AccessControlEnumerable.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (access/AccessControlEnumerable.sol)
+
+pragma solidity ^0.8.0;
+
+
+
 /**
  * @dev Extension of {AccessControl} that allows enumerating the members of each role.
  */
@@ -882,37 +955,27 @@ abstract contract AccessControlEnumerable is IAccessControlEnumerable, AccessCon
     }
 
     /**
-     * @dev Overload {grantRole} to track enumerable memberships
+     * @dev Overload {_grantRole} to track enumerable memberships
      */
-    function grantRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
-        super.grantRole(role, account);
+    function _grantRole(bytes32 role, address account) internal virtual override {
+        super._grantRole(role, account);
         _roleMembers[role].add(account);
     }
 
     /**
-     * @dev Overload {revokeRole} to track enumerable memberships
+     * @dev Overload {_revokeRole} to track enumerable memberships
      */
-    function revokeRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
-        super.revokeRole(role, account);
+    function _revokeRole(bytes32 role, address account) internal virtual override {
+        super._revokeRole(role, account);
         _roleMembers[role].remove(account);
-    }
-
-    /**
-     * @dev Overload {renounceRole} to track enumerable memberships
-     */
-    function renounceRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
-        super.renounceRole(role, account);
-        _roleMembers[role].remove(account);
-    }
-
-    /**
-     * @dev Overload {_setupRole} to track enumerable memberships
-     */
-    function _setupRole(bytes32 role, address account) internal virtual override {
-        super._setupRole(role, account);
-        _roleMembers[role].add(account);
     }
 }
+
+// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC20/IERC20.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -991,6 +1054,12 @@ interface IERC20 {
      */
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
+
+// File @openzeppelin/contracts/token/ERC1155/IERC1155.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC1155/IERC1155.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Required interface of an ERC1155 compliant contract, as defined in the
@@ -1111,6 +1180,11 @@ interface IERC1155 is IERC165 {
     ) external;
 }
 
+// File contracts/interfaces/IStrategy.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
 interface IStrategy {
     /**
      * @notice Gets the token this strategy compounds.
@@ -1167,6 +1241,13 @@ interface IStrategy {
         address to
     ) external;
 }
+
+// File contracts/interfaces/IVaultChefCore.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 
 /**
  * @notice The VaultChef is a vault management contract that manages vaults, their strategies and the share positions of investors in these vaults.
@@ -1332,6 +1413,11 @@ interface IVaultChefCore is IERC1155 {
     ) external;
 }
 
+// File contracts/interfaces/IMasterChef.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
 /// @dev The VaultChef implements the masterchef interface for compatibility with third-party tools.
 interface IMasterChef {
     /// @dev An active vault has a dummy allocPoint of 1 while an inactive one has an allocPoint of zero.
@@ -1365,6 +1451,11 @@ interface IMasterChef {
     function emergencyWithdraw(uint256 _pid) external;
 }
 
+// File contracts/interfaces/IERC20Metadata.sol
+// License-Identifier: MIT
+// Based on: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/1b27c13096d6e4389d62e7b0766a1db53fbb3f1b/contracts/token/ERC20/extensions/IERC20Metadata.sol
+
+pragma solidity ^0.8.6;
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
  *
@@ -1386,6 +1477,13 @@ interface IERC20Metadata {
      */
     function decimals() external view returns (uint8);
 }
+
+// File contracts/interfaces/IVaultChefWrapper.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 
 interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
      /**
@@ -1422,15 +1520,34 @@ interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
 
 }
 
+// File contracts/interfaces/IVaultChef.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 /// @notice Interface for derivative protocols.
 interface IVaultChef is IVaultChefWrapper, IVaultChefCore {
    
 }
 
+// File contracts/interfaces/IOwnable.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 interface IOwnable {
    function transferOwnership() external;
    function setPendingOwner(address newPendingOwner) external;
 }
+
+// File contracts/governance/VaultChefGovernor.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 
 
 /**

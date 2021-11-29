@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copy of ERC1155Supply using ./ERC1155 which omits the reentrancy hook on mints.
+// TODO: Incorporate fix of supply bug https://github.com/OpenZeppelin/openzeppelin-contracts/pull/2956
 pragma solidity ^0.8.4;
 
 import "./ERC1155.sol";

@@ -1,6 +1,11 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIXED
 
-pragma solidity ^0.8.6;
+// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC20/IERC20.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
@@ -79,6 +84,11 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
+// File contracts/interfaces/IMasterChef.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
 /// @dev The VaultChef implements the masterchef interface for compatibility with third-party tools.
 interface IMasterChef {
     /// @dev An active vault has a dummy allocPoint of 1 while an inactive one has an allocPoint of zero.
@@ -112,6 +122,11 @@ interface IMasterChef {
     function emergencyWithdraw(uint256 _pid) external;
 }
 
+// File contracts/interfaces/IERC20Metadata.sol
+// License-Identifier: MIT
+// Based on: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/1b27c13096d6e4389d62e7b0766a1db53fbb3f1b/contracts/token/ERC20/extensions/IERC20Metadata.sol
+
+pragma solidity ^0.8.6;
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
  *
@@ -133,6 +148,11 @@ interface IERC20Metadata {
      */
     function decimals() external view returns (uint8);
 }
+
+// File contracts/interfaces/IStrategy.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
 
 interface IStrategy {
     /**
@@ -191,6 +211,13 @@ interface IStrategy {
     ) external;
 }
 
+// File contracts/interfaces/IVaultChefWrapper.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
+
 interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
      /**
      * @notice Interface function to fetch the total underlying tokens inside a vault.
@@ -226,6 +253,12 @@ interface IVaultChefWrapper is IMasterChef, IERC20Metadata{
 
 }
 
+// File @openzeppelin/contracts/utils/introspection/IERC165.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/introspection/IERC165.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Interface of the ERC165 standard, as defined in the
  * https://eips.ethereum.org/EIPS/eip-165[EIP].
@@ -246,6 +279,12 @@ interface IERC165 {
      */
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 }
+
+// File @openzeppelin/contracts/token/ERC1155/IERC1155.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC1155/IERC1155.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Required interface of an ERC1155 compliant contract, as defined in the
@@ -366,6 +405,12 @@ interface IERC1155 is IERC165 {
     ) external;
 }
 
+// File @openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC1155/IERC1155Receiver.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev _Available since v3.1._
  */
@@ -413,6 +458,12 @@ interface IERC1155Receiver is IERC165 {
     ) external returns (bytes4);
 }
 
+// File @openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC1155/extensions/IERC1155MetadataURI.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Interface of the optional ERC1155MetadataExtension interface, as defined
  * in the https://eips.ethereum.org/EIPS/eip-1155#metadata-extensions[EIP].
@@ -428,6 +479,12 @@ interface IERC1155MetadataURI is IERC1155 {
      */
     function uri(uint256 id) external view returns (string memory);
 }
+
+// File @openzeppelin/contracts/utils/Address.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/Address.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Collection of functions related to the address type
@@ -642,6 +699,12 @@ library Address {
     }
 }
 
+// File @openzeppelin/contracts/utils/Context.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/Context.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -661,6 +724,12 @@ abstract contract Context {
         return msg.data;
     }
 }
+
+// File @openzeppelin/contracts/utils/introspection/ERC165.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (utils/introspection/ERC165.sol)
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Implementation of the {IERC165} interface.
@@ -684,6 +753,17 @@ abstract contract ERC165 is IERC165 {
         return interfaceId == type(IERC165).interfaceId;
     }
 }
+
+// File contracts/dependencies/ERC1155.sol
+// License-Identifier: MIT
+// Derived from openzeppeling ERC1155 without acceptance hooks on mints
+
+pragma solidity ^0.8.0;
+
+
+
+
+
 
 /**
  * @dev Implementation of the basic standard multi-token.
@@ -1128,6 +1208,11 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
     }
 }
 
+// File contracts/dependencies/ERC1155Supply.sol
+// License-Identifier: MIT
+// Copy of ERC1155Supply using ./ERC1155 which omits the reentrancy hook on mints.
+pragma solidity ^0.8.4;
+
 /**
  * @dev Extension of ERC1155 that adds tracking of total supply per id.
  *
@@ -1207,6 +1292,14 @@ abstract contract ERC1155Supply is ERC1155 {
         }
     }
 }
+
+// File contracts/dependencies/Ownable.sol
+// License-Identifier: MIT
+
+// Derived from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/1b27c13096d6e4389d62e7b0766a1db53fbb3f1b/contracts/access/Ownable.sol
+// Adds pending owner
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -1292,6 +1385,13 @@ abstract contract Ownable is Context {
         emit OwnershipTransferred(oldOwner, newOwner);
     }
 }
+
+// File contracts/interfaces/IVaultChefCore.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
 
 /**
  * @notice The VaultChef is a vault management contract that manages vaults, their strategies and the share positions of investors in these vaults.
@@ -1457,6 +1557,11 @@ interface IVaultChefCore is IERC1155 {
     ) external;
 }
 
+// File contracts/interfaces/IPullDepositor.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
 interface IPullDepositor {
     /**
      * @notice Called by a contract requesting tokens, with the aim of the PullDepositor implementing contract to send these tokens.
@@ -1469,6 +1574,13 @@ interface IPullDepositor {
         address to
     ) external;
 }
+
+// File @openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (token/ERC20/utils/SafeERC20.sol)
+
+pragma solidity ^0.8.0;
+
 
 /**
  * @title SafeERC20
@@ -1562,6 +1674,12 @@ library SafeERC20 {
     }
 }
 
+// File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.4.0
+// License-Identifier: MIT
+// OpenZeppelin Contracts v4.4.0 (security/ReentrancyGuard.sol)
+
+pragma solidity ^0.8.0;
+
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
  *
@@ -1603,7 +1721,7 @@ abstract contract ReentrancyGuard {
      * @dev Prevents a contract from calling itself, directly or indirectly.
      * Calling a `nonReentrant` function from another `nonReentrant`
      * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
+     * by making the `nonReentrant` function external, and making it call a
      * `private` function that does the actual work.
      */
     modifier nonReentrant() {
@@ -1620,6 +1738,19 @@ abstract contract ReentrancyGuard {
         _status = _NOT_ENTERED;
     }
 }
+
+// File contracts/vaultchef/VaultChefCore.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
+
+
+
+
+
+
 
 /**
  * @title VaultChefCore
@@ -2061,6 +2192,14 @@ contract VaultChefCore is
     }
 }
 
+// File contracts/vaultchef/VaultChef.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
+
+
+
+
 /**
  * @notice The VaultChef is the wrapper of the core `VaultChefCore` logic that contains all non-essential functionality.
  * @notice It is isolated from the core functionality because all this functionality has no impact on the core functionality.
@@ -2297,6 +2436,11 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
         super.safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 }
+
+// File contracts/vaultchef/WhitelistedVaultChef.sol
+// License-Identifier: MIT
+
+pragma solidity ^0.8.6;
 
 contract WhitelistedVaultChef is VaultChef {
     mapping(address => bool) public whitelisted;
