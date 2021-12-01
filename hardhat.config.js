@@ -72,6 +72,10 @@ module.exports = {
       url: "https://evm-cronos.crypto.org",
       accounts: [`0x${PRIVATE_KEY}`],
     },
+    fuse: {
+      url: "https://rpc.fuse.io",
+      accounts: [`0x${PRIVATE_KEY}`],
+    },
     // TESTNETS
     avax_fuji: {
       url: "https://api.avax-test.network/ext/bc/C/rpc",
