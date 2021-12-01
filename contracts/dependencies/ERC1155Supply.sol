@@ -13,6 +13,14 @@ import "./ERC1155.sol";
  * corresponding is an NFT, there is no guarantees that no other token with the
  * same id are not going to be minted.
  */
+/**
+ * @dev Extension of ERC1155 that adds tracking of total supply per id.
+ *
+ * Useful for scenarios where Fungible and Non-fungible tokens have to be
+ * clearly identified. Note: While a totalSupply of 1 might mean the
+ * corresponding is an NFT, there is no guarantees that no other token with the
+ * same id are not going to be minted.
+ */
 abstract contract ERC1155Supply is ERC1155 {
     mapping(uint256 => uint256) private _totalSupply;
 
@@ -31,56 +39,28 @@ abstract contract ERC1155Supply is ERC1155 {
     }
 
     /**
-     * @dev See {ERC1155-_mint}.
+     * @dev See {ERC1155-_beforeTokenTransfer}.
      */
-    function _mint(
-        address account,
-        uint256 id,
-        uint256 amount,
-        bytes memory data
-    ) internal virtual override {
-        super._mint(account, id, amount, data);
-        _totalSupply[id] += amount;
-    }
-
-    /**
-     * @dev See {ERC1155-_mintBatch}.
-     */
-    function _mintBatch(
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
         address to,
         uint256[] memory ids,
         uint256[] memory amounts,
         bytes memory data
     ) internal virtual override {
-        super._mintBatch(to, ids, amounts, data);
-        for (uint256 i = 0; i < ids.length; ++i) {
-            _totalSupply[ids[i]] += amounts[i];
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+
+        if (from == address(0)) {
+            for (uint256 i = 0; i < ids.length; ++i) {
+                _totalSupply[ids[i]] += amounts[i];
+            }
         }
-    }
 
-    /**
-     * @dev See {ERC1155-_burn}.
-     */
-    function _burn(
-        address account,
-        uint256 id,
-        uint256 amount
-    ) internal virtual override {
-        super._burn(account, id, amount);
-        _totalSupply[id] -= amount;
-    }
-
-    /**
-     * @dev See {ERC1155-_burnBatch}.
-     */
-    function _burnBatch(
-        address account,
-        uint256[] memory ids,
-        uint256[] memory amounts
-    ) internal virtual override {
-        super._burnBatch(account, ids, amounts);
-        for (uint256 i = 0; i < ids.length; ++i) {
-            _totalSupply[ids[i]] -= amounts[i];
+        if (to == address(0)) {
+            for (uint256 i = 0; i < ids.length; ++i) {
+                _totalSupply[ids[i]] -= amounts[i];
+            }
         }
     }
 }
