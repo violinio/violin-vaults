@@ -18,6 +18,7 @@ These deployments have a whitelist:
 
 | Chain   | VaultChef                                  | Governor                                   |
 | ------- | ------------------------------------------ | ------------------------------------------ |
+| Aurora  | 0xA5BCB9FdDE71e393978278999425ac42DA393d3D | 0x18ed63edAA3D2B7aeCC97398530ee2A8cd244579 |
 | BSC     | 0x9166933Bd5c8A77E99B149c5A32f0936aD6aaE25 | 0x8f13a9214D0D03C7b0F4a27fe35C72e6D702cC0b |
 | Celo    | 0x76cb8cd4b0a55C6dE2bd864dEd2B55140bB56C18 | 0xB88f2B30772c95C017c997aec3eD12A129D0FDd0 |
 | Cronos  | 0x2926FaBf8eF4880B2C32Fc84B1CA7C38ee045F9b | 0xf0ED9d2bf5cc72677a46739206442BC5e3EE8517 |

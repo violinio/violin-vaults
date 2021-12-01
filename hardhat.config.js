@@ -76,6 +76,10 @@ module.exports = {
       url: "https://rpc.fuse.io",
       accounts: [`0x${PRIVATE_KEY}`],
     },
+    aurora: {
+      url: "https://mainnet.aurora.dev/Fon6fPMs5rCdJc4mxX4kiSK1vsKdzc3D8k6UF8aruek",
+      accounts: [`0x${PRIVATE_KEY}`],
+    },
     // TESTNETS
     avax_fuji: {
       url: "https://api.avax-test.network/ext/bc/C/rpc",
