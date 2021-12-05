@@ -29,7 +29,7 @@ import "./VaultChefCore.sol";
  */
 contract VaultChef is VaultChefCore, IVaultChefWrapper {
     // ERC-20 metadata for etherscan compatibility.
-    string private _name = "Violin Vault Receipt";
+    string private _name = "Violin Vault";
     string private _symbol = "vVault";
     uint8 private _decimals = 18;
 
