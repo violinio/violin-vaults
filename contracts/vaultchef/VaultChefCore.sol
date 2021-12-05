@@ -355,7 +355,8 @@ contract VaultChefCore is
         emit VaultPaused(vaultId, paused);
     }
 
-    /// @notice No staked tokens are ever sent to the VaultChef, only to the strategies.
+    /// @notice Withdraws ERC-20 tokens which were accidentally sent to the VaultChef. 
+    /// @dev No staked tokens are ever sent to the VaultChef, only to the strategies.
     function inCaseTokensGetStuck(IERC20 token, address to)
         external
         override
@@ -368,7 +369,9 @@ contract VaultChefCore is
         emit InCaseTokenStuck(token, to, amount);
     }
 
-    /// @notice Although the strategy could contain underlying tokens, this function reverts if governance tries to withdraw these.
+    /// @notice Withdraws ERC-20 tokens which were accidentally sent to the strategies.
+    /// @dev Although the strategy could contain underlying tokens, this function reverts if governance tries to withdraw these.
+    /// @dev No nonDecreasingShareValue is necessary since the number of shares cannot change during this operation.
     function inCaseVaultTokensGetStuck(
         uint256 vaultId,
         IERC20 token,
@@ -431,12 +434,12 @@ contract VaultChefCore is
         );
     }
 
-    /// @dev the nonDecreasingVaultValue modifier requires the vault's total underlying tokens to not decrease over the operation.
+    /// @dev the nonDecreasingUnderlyingValue modifier requires the vault's total underlying tokens to not decrease over the operation.
     modifier nonDecreasingUnderlyingValue(uint256 vaultId) {
-        Vault memory vault = vaults[vaultId];
-        uint256 balanceBefore = vault.strategy.totalUnderlying();
+        IStrategy strategy = vaults[vaultId].strategy;
+        uint256 balanceBefore = strategy.totalUnderlying();
         _;
-        uint256 balanceAfter = vault.strategy.totalUnderlying();
+        uint256 balanceAfter = strategy.totalUnderlying();
         require(balanceAfter >= balanceBefore, "!unsafe");
     }
 

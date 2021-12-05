@@ -137,7 +137,7 @@ contract VaultChef is VaultChefCore, IVaultChefWrapper {
 
     /// @notice userInfo returns the user their stake information about a specific vault in a format compatible with the masterchef userInfo.
     /// @dev amount represents the amount of underlying tokens.
-    /// @dev _rewardDebt are zero since there is no concept of rewards in the VaultChef.
+    /// @dev _rewardDebt is zero since there is no concept of rewards in the VaultChef.
     function userInfo(uint256 vaultId, address user)
         external
         view

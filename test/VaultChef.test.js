@@ -212,6 +212,15 @@ describe("VaultChef testing", function () {
           .withArgs(0, TestToken2.address, user2.address, 1000);
       });
 
+      it("It should allow governance to withdraw stuck non-staking tokens from the strategy using correct gas", async function () {
+        await TestToken2.connect(owner).mint(1000);
+        await TestToken2.connect(owner).transfer(MockStrategy.address, 1000);
+        const tx = await VaultChef.connect(owner).inCaseVaultTokensGetStuck(0, TestToken2.address, user2.address, 1000);
+        const receipt = await tx.wait();
+        expect(receipt.gasUsed).to.be.equal(96690);
+
+      });
+
       it("Should be pausable", async function () {
         expect(await VaultChef.connect(owner).pauseVault(0, true))
           .to.emit(VaultChef, "VaultPaused")
