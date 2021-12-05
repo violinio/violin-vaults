@@ -130,13 +130,13 @@ interface IVaultChefCore is IERC1155 {
      * @notice Returns true if there is a vault associated with the `vaultId`.
      * @param vaultId The id of the vault.
      */
-    function isValidVault(uint256 vaultId) external returns (bool);
+    function isValidVault(uint256 vaultId) external view returns (bool);
 
     /**
      * @notice Returns the Vault information of the vault at `vaultId`, returns if non-existent.
      * @param vaultId The id of the vault.
      */
-    function vaultInfo(uint256 vaultId) external returns (Vault memory);
+    function vaultInfo(uint256 vaultId) external view returns (Vault memory);
 
     /**
      * @notice Pauses the vault which means deposits and harvests are no longer permitted, reverts if already set to the desired value.

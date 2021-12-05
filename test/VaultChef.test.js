@@ -410,11 +410,11 @@ describe("VaultChef testing", function () {
         });
 
 
-        it("It should use correct gas on depositUnderlying with minimum ", async function () {
+        it("It should use correct gas on depositUnderlying with minimum", async function () {
           const deposit1amount = ethers.utils.parseEther("1.0");
           const tx = await VaultChef.connect(user1).depositUnderlying(0, deposit1amount, false, deposit1amount);
           const receipt = await tx.wait();
-          expect(receipt.gasUsed).to.be.equal(202795);
+          expect(receipt.gasUsed).to.be.equal(203123);
 
         });
 
@@ -477,7 +477,7 @@ describe("VaultChef testing", function () {
           it("It should use correct gas on withdrawShares with minimum ", async function () {
             const tx = await VaultChef.connect(user1).withdrawShares(0, deposit1amount, deposit1amount);
             const receipt = await tx.wait();
-            expect(receipt.gasUsed).to.eq(107762);
+            expect(receipt.gasUsed).to.eq(108028);
 
           });
 

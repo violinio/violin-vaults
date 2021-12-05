@@ -1,5 +1,7 @@
 {
-  "name": "violin-vaults-contracts",
+  "name": "@violinio/violin-vaults-contracts",
+  "author": "violinio",
+  "version": "0.0.2",
   "scripts": {
     "deploy": "npx hardhat deploy --network",
     "test": "npx hardhat test",
@@ -24,5 +26,10 @@
     "@openzeppelin/contracts": "^4.4.0",
     "prettier": "^2.4.1",
     "prettier-plugin-solidity": "^1.0.0-beta.18"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/violinio/violin-vaults.git"
+  },
+  "license": "MIT"
 }
