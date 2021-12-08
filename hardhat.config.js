@@ -77,7 +77,7 @@ module.exports = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
     aurora: {
-      url: "https://mainnet.aurora.dev/Fon6fPMs5rCdJc4mxX4kiSK1vsKdzc3D8k6UF8aruek",
+      url: "https://mainnet.aurora.dev/",
       accounts: [`0x${PRIVATE_KEY}`],
     },
     // TESTNETS
