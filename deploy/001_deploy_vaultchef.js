@@ -1,8 +1,8 @@
 const { NonceManager } = require("@ethersproject/experimental");
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
-const etherscanChains = ["poly", "bsc", "poly_mumbai", "ftm", "arbitrum"];
-const sourcifyChains = ["xdai", "celo", "avax", "avax_fuji", "arbitrum", "cro"];
+const etherscanChains = ["poly", "bsc", "poly_mumbai", "ftm", "arbitrum", "avax", "avax_fuji"];
+const sourcifyChains = ["xdai", "celo", "arbitrum", "cro"];
 
 const main = async function (hre) {
     const { deployments, getNamedAccounts } = hre;
